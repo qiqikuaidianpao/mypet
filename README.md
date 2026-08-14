@@ -9,6 +9,18 @@
 
 ---
 
+## 截图
+
+| 状态 | 衣橱 |
+|:---:|:---:|
+| ![状态](screenshots/stats.png) | ![衣橱](screenshots/closet.png) |
+
+| 成就 | 更多 |
+|:---:|:---:|
+| ![成就](screenshots/achievements.png) | ![更多](screenshots/more.png) |
+
+---
+
 ## 安装
 
 ```sh
@@ -58,6 +70,7 @@ dsh plugin --profile web add mypet
 | `lib/index.js` | node 半（空 apply） |
 | `scripts/build.mjs` | 构建脚本 |
 | `cordis.patch.yml` | bundle patch |
+| `screenshots/` | 截图 |
 
 ## License
 
