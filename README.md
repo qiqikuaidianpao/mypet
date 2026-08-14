@@ -13,11 +13,11 @@
 
 | 状态 | 衣橱 |
 |:---:|:---:|
-| ![状态](screenshots/stats.png) | ![衣橱](screenshots/closet.png) |
+| ![状态](https://raw.githubusercontent.com/qiqikuaidianpao/mypet/main/screenshots/stats.png) | ![衣橱](https://raw.githubusercontent.com/qiqikuaidianpao/mypet/main/screenshots/closet.png) |
 
 | 成就 | 更多 |
 |:---:|:---:|
-| ![成就](screenshots/achievements.png) | ![更多](screenshots/more.png) |
+| ![成就](https://raw.githubusercontent.com/qiqikuaidianpao/mypet/main/screenshots/achievements.png) | ![更多](https://raw.githubusercontent.com/qiqikuaidianpao/mypet/main/screenshots/more.png) |
 
 ---
 
