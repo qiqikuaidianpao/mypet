@@ -98,3 +98,9 @@ dsh plugin --profile web remove mypet
 ## License
 
 MIT
+
+---
+
+## 🤝 社区认可
+
+本项目积极参与并认可 LINUX DO 社区 —— 一个友善的技术人聚集地。

@@ -1,6 +1,6 @@
 {
   "name": "mypet",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A tamagotchi-style desktop pet for DeepSeek Harness — lives in your browser, reacts to coding sessions, levels up, collects skins, and more.",
   "type": "module",
   "main": "lib/index.js",
