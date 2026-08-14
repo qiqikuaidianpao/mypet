@@ -9,8 +9,6 @@ A tamagotchi-style desktop pet plugin for **DeepSeek Harness (DSH)**.
 它在你的 Web GUI 里养一只小宠物 —— 随你和 agent 的编码活动变化心情、体力、饱腹、牵绊，
 会升级、有性格、能攒金币抽 24 种皮肤、完成每日任务、转生强化……
 
-灵感来自 [claude-code-tamagotchi](https://github.com/Ido-Levi/claude-code-tamagotchi) 与 Codex 桌面宠物。
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![DSH Plugin](https://img.shields.io/badge/DSH-Plugin-blueviolet)](https://github.com/topics/dsh-plugin)
 [![Platform: Web](https://img.shields.io/badge/Platform-Web-orange)](https://deepseek.com)
