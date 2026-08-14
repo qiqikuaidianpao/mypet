@@ -1,0 +1,21 @@
+# dsh-plugin-pet · bundle patch layer
+# ─────────────────────────────────────────────────────────────────────────────
+# Installed into a profile with:
+#   dsh plugin --profile web add @your-scope/dsh-plugin-pet
+# `dsh plugin` detects this package's `dsh.bundle.patch` and appends it to the
+# profile's `dsh.profile.bundles` layer list; this patch is then composed over
+# the empty root, after the shipped bundles (dsh-base, dsh-web-app) and before
+# the user's cordis.patch.yml.
+#
+# ONE row activates the package as a Loader entry. Because the same package also
+# declares `dsh.client` (see package.json), the client-modules scanner treats
+# this entry as a web client module too: it hashes lib/client.js into the boot
+# graph and the browser loads the pet under /plugins/<id>/client.js. The node
+# half (lib/index.js) is a trivial `apply(){}` that just gives the entry a fiber.
+#
+# The pet registers into the `sidebar.footer.action` LIST slot (declared by
+# @deepseek-ai/dsh-client-ui-sidebar; replaceRisk "none"), so it appears beside
+# Settings in every web profile that mounts the sidebar.
+- insert:
+    - id: dsh-pet
+      name: 'mypet'
