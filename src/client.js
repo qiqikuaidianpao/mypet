@@ -15,6 +15,9 @@
 // V7 adds: a click-to-throw fetch mini-game (🎾 combo + rewards), idle strolling,
 // sleeping Zzz / happy sparkle ambience, ceremony banners for milestone achievements,
 // offline welcome-back reports, panel pop in/out animations, and smart panel flipping.
+// V8 adds: living-skin animation (blink + tail-wag keyframes), a deterministic daily
+// weather + time-of-day phase system (ambient glow, rain/snow particles, status icons),
+// and a weekly report card (mood trend, coin income/expense, level-ups) from dailyLog.
 // ─────────────────────────────────────────────────────────────────────────────
 var react = require("react");
 var createElement = react.createElement;
@@ -73,6 +76,10 @@ function ensureCss() {
 		".dshpet-stage{animation:dshpet-stage .42s cubic-bezier(.2,.9,.3,1.4)}",
 		"@keyframes dshpet-glow{0%,100%{box-shadow:0 0 8px 0 rgba(124,224,255,0)}50%{box-shadow:0 0 22px 5px rgba(124,224,255,.35)}}",
 		".dshpet-glow{animation:dshpet-glow 2.6s ease-in-out infinite}",
+		"@keyframes dshpet-blink{0%,93.5%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}",
+		".dshpet-blink{animation:dshpet-blink 4.6s infinite;transform-origin:center}",
+		"@keyframes dshpet-wag{0%,100%{transform:rotate(0)}15%{transform:rotate(-6deg)}35%{transform:rotate(5deg)}55%{transform:rotate(-3.5deg)}75%{transform:rotate(2.5deg)}}",
+		".dshpet-wag{animation:dshpet-wag 3.8s ease-in-out infinite;transform-origin:50% 85%}",
 		"@keyframes dshpet-pop{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}",
 		".dshpet-pop{animation:dshpet-pop .22s cubic-bezier(.2,.9,.3,1.2)}",
 		"@keyframes dshpet-pop-out{to{opacity:0;transform:translateY(8px) scale(.95)}}",
@@ -80,7 +87,7 @@ function ensureCss() {
 		".dshpet-anim{transition:right .5s cubic-bezier(.3,.8,.4,1),bottom .5s cubic-bezier(.3,.8,.4,1)}",
 		"@keyframes dshpet-banner{from{transform:translate(-50%,-130%)}to{transform:translate(-50%,0)}}",
 		".dshpet-banner{animation:dshpet-banner .45s cubic-bezier(.2,.9,.3,1.3)}",
-		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-stage,.dshpet-glow,.dshpet-pop,.dshpet-pop-out,.dshpet-banner{animation:none!important}}"
+		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-stage,.dshpet-glow,.dshpet-pop,.dshpet-pop-out,.dshpet-banner,.dshpet-blink,.dshpet-wag{animation:none!important}}"
 	].join("\n");
 	document.head.appendChild(tag);
 }
@@ -187,7 +194,7 @@ var HINT_KEY = "dsh-pet:hint-shown";
 var storageWarned = false;
 function persist() { state.lastSeen = Date.now(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { if (!storageWarned) { storageWarned = true; try { showBubble("⚠️ 存储已满，进度暂时无法保存"); } catch (e2) {} } } }
 function addDiary(text) { state.diary = [{ text: text, t: Date.now() }].concat(state.diary || []).slice(0, 12); }
-var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, petCount: 0, feedCount: 0, napCount: 0, playCount: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
+var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, petCount: 0, feedCount: 0, napCount: 0, playCount: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], dailyLog: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
 function clamp(n) { return Math.max(0, Math.min(100, n)); }
 function fmtCoin(n) { n = Math.floor(n || 0); if (n >= 10000) return (n / 1000).toFixed(1) + "k"; return "" + n; }
 function xpForLevel(l) { return 50 + l * 25; }
@@ -215,6 +222,7 @@ function loadState() {
 	s.feedCount = Math.max(0, s.feedCount || 0);
 	s.napCount = Math.max(0, s.napCount || 0);
 	s.playCount = Math.max(0, s.playCount || 0);
+	s.dailyLog = Array.isArray(s.dailyLog) ? s.dailyLog.slice(-14) : [];
 	s.earlyBird = !!s.earlyBird;
 	s.nightOwl = !!s.nightOwl;
 	s.freePullDate = s.freePullDate || "";
@@ -240,6 +248,7 @@ function loadState() {
 	return s;
 }
 var state = loadState();
+if (state.onboarded) { ensureDailyLog(); persist(); }
 var bubble = { text: "" };
 var notify = { unread: false };
 var celebrate = { text: "" };
@@ -632,6 +641,27 @@ function checkAchievements() {
 checkAchievements();
 
 // ── brain ────────────────────────────────────────────────────────────
+// time-of-day phases & deterministic daily weather (no network needed)
+var PHASE_INFO = { dawn: { icon: "🌅", name: "清晨", glow: "255,179,107" }, day: { icon: "☀️", name: "白天", glow: "124,224,255" }, dusk: { icon: "🌇", name: "黄昏", glow: "180,140,255" }, night: { icon: "🌙", name: "夜晚", glow: "110,135,215" } };
+var WEATHER_INFO = { sunny: { icon: "☀️", name: "晴" }, cloudy: { icon: "☁️", name: "多云" }, rain: { icon: "🌧️", name: "雨" }, snow: { icon: "❄️", name: "雪" } };
+function phaseOfDay() { var h = new Date().getHours(); if (h < 5) return "night"; if (h < 8) return "dawn"; if (h < 17) return "day"; if (h < 20) return "dusk"; return "night"; }
+function weatherOfToday() {
+	var d = new Date(), seed = (d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate()) % 10007;
+	var x = ((seed * 137 + 31) % 100) / 100;
+	var m = d.getMonth() + 1;
+	if (m === 12 || m <= 2) return x < 0.35 ? "snow" : x < 0.65 ? "cloudy" : "sunny";
+	if (m >= 6 && m <= 8) return x < 0.35 ? "rain" : x < 0.65 ? "cloudy" : "sunny";
+	return x < 0.25 ? "rain" : x < 0.55 ? "cloudy" : "sunny";
+}
+// daily snapshot log for the weekly report (keeps last 14 days)
+function ensureDailyLog() {
+	var today = todayKey(), log = state.dailyLog && state.dailyLog.length ? state.dailyLog : [];
+	var entry = { d: today, mood: Math.round(state.mood || 50), coins: state.coins || 0, earned: state.earned || 0, spent: state.spent || 0, level: state.level || 1, interacts: state.interacts || 0 };
+	if (log.length && log[log.length - 1].d === today) log[log.length - 1] = entry;
+	else log.push(entry);
+	if (log.length > 14) log = log.slice(-14);
+	state.dailyLog = log;
+}
 function stageOf(level) {
 	if (level >= 20) return { icon: "👑", name: "大师" };
 	if (level >= 10) return { icon: "🌟", name: "成年" };
@@ -648,7 +678,7 @@ function viewOf(s, working) {
 		pity: s.pity || 0, pityLeft: Math.max(0, PITY_CAP - (s.pity || 0)),
 		totalDraws: s.totalDraws || 0, maxStreak: s.maxStreak || 0, loginStreak: s.loginStreak || 0, careStreak: s.careStreak || 0,
 		achievements: (s.achievements || []).slice(), achCount: (s.achievements || []).length, achTotal: ACH.length,
-		earned: s.earned || 0, spent: s.spent || 0, turns: s.turns || 0, workTicks: s.workTicks || 0, daysPlayed: s.daysPlayed || 0, interacts: s.interacts || 0, playCount: s.playCount || 0,
+		earned: s.earned || 0, spent: s.spent || 0, turns: s.turns || 0, workTicks: s.workTicks || 0, daysPlayed: s.daysPlayed || 0, interacts: s.interacts || 0, playCount: s.playCount || 0, dailyLog: (s.dailyLog || []).slice(),
 		muted: !!s.muted,
 		onboarded: !!s.onboarded,
 		moodTier: moodTierOf(s), sleeping: s.energy < 12, streak: s.streak, turnBonus: TURN_BONUS + Math.min((s.streak || 0), 10) * 2, working: !!working,
@@ -861,6 +891,9 @@ function tick(working) {
 	var moodDrift = state.mood < 70 ? 0.3 : -0.15;
 	if (t === "cool") moodDrift *= 0.8;
 	if (state.hunger <= 30) moodDrift += 0.2;
+	var wToday = weatherOfToday();
+	if (wToday === "sunny") moodDrift += 0.1;
+	else if (wToday === "rain" || wToday === "snow") moodDrift -= 0.08;
 	var mood = clamp(state.mood + moodDrift);
 	if (hunger >= 95) mood = clamp(mood - 2);
 	if (energy <= 8) mood = clamp(mood - 2);
@@ -879,6 +912,7 @@ function tick(working) {
 	if (state.streak > 0 && working) patch.streakGrace = 0;
 	if (working) patch.workTicks = (state.workTicks || 0) + 1;
 	setState(patch);
+	ensureDailyLog(); persist();
 }
 function onTurnComplete() {
 	var streak = state.streak + 1, xp = state.xp + 6 + Math.min(streak, 10) + (state.trait === "studious" ? 2 : 0), level = state.level, mood = clamp(state.mood + 4), leveled = false;
@@ -1044,13 +1078,17 @@ function CritterTile(props) {
 	var shown = hovering ? skinOf(v.species).face.happy : baseFace;
 	var moodFilter = v.sleeping ? "saturate(0.5) brightness(0.7)" : v.moodTier === "happy" ? "saturate(1.18) brightness(1.08)" : v.moodTier === "sad" ? "saturate(0.55) brightness(0.88)" : "none";
 	if (hovering && !v.sleeping) moodFilter = "saturate(1.25) brightness(1.12)";
+	var faceEl = createElement(Emoji, { char: shown, size: Math.round(size * 0.62) });
 	return createElement("div", { style: { position: "relative", width: size, height: size } },
+		createElement("div", { style: { position: "absolute", inset: -13, borderRadius: "50%", background: "radial-gradient(circle, rgba(" + PHASE_INFO[phaseOfDay()].glow + ",.20), transparent 70%)", pointerEvents: "none" } }),
 		v.rarity === "legendary" && !v.working ? createElement("div", { className: "dshpet-ring", style: { borderRadius: size * 0.38 } }) : null,
 		v.rarity === "rare" && !v.working ? createElement("div", { className: "dshpet-aura-r", style: { position: "absolute", inset: -3, borderRadius: size * 0.38, pointerEvents: "none" } }) : null,
 		v.moodTier === "happy" && !v.working && !v.sleeping ? createElement("div", { className: "dshpet-glow", style: { position: "absolute", inset: -2, borderRadius: size * 0.38, pointerEvents: "none" } }) : null,
 		createElement("div", { onPointerDown: props.onPointerDown, onClick: props.onClick, onMouseEnter: function () { setHovering(true); }, onMouseLeave: function () { setHovering(false); }, title: props.title, className: v.working ? "dshpet-work" : "dshpet-bob",
 			style: { width: size, height: size, borderRadius: size * 0.32, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.6, background: "rgba(136,136,170,.20)", border: "2px solid " + rc, boxShadow: "0 8px 22px rgba(0,0,0,.34), 0 0 14px " + rc + "55" + (props.flashing ? ", 0 0 24px 6px rgba(255,209,102,.55)" : ""), backdropFilter: "blur(6px)", cursor: props.onPointerDown ? "grab" : "pointer", transition: "box-shadow .3s ease, filter .4s ease", filter: moodFilter } },
-			createElement("span", { key: tapKey + (hovering ? "h" : ""), className: tapKey ? "dshpet-tap" : null, style: { display: "inline-block", transform: hovering ? "scale(1.15)" : "scale(1)", transition: "transform .15s ease" } }, createElement(Emoji, { char: shown, size: Math.round(size * 0.62) }))),
+			createElement("span", { key: tapKey + (hovering ? "h" : ""), className: tapKey ? "dshpet-tap" : null, style: { display: "inline-block", transform: hovering ? "scale(1.15)" : "scale(1)", transition: "transform .15s ease" } },
+				v.sleeping ? faceEl : createElement("span", { className: "dshpet-wag", style: { display: "inline-block" } },
+					createElement("span", { className: "dshpet-blink", style: { display: "inline-block" } }, faceEl)))),
 		props.unread && createElement("span", { className: "dshpet-badge", style: { position: "absolute", top: -2, right: -2, width: 12, height: 12, borderRadius: "50%", background: "#ff5a5a", border: "2px solid rgba(20,20,30,.9)" } }));
 }
 
@@ -1176,11 +1214,52 @@ function ClosetTab(props) {
 					createElement("span", null, owned ? skin.name : "???"));
 			})));
 }
+function WeeklyReport(props) {
+	var log = (props.log || []).slice(-8);
+	if (log.length < 2) return createElement("div", { style: { fontSize: 10.5, color: "#9aa0b5", textAlign: "center", padding: "14px 8px", background: "rgba(255,255,255,.04)", borderRadius: 10, marginBottom: 10 } }, "📊 再多玩几天就能生成周报啦~（至少 2 天）");
+	var week = log.slice(-7);
+	var moods = week.map(function (e) { return e.mood; });
+	var earnedT = 0, spentT = 0, deltas = [], maxFlow = 1;
+	for (var i = 1; i < week.length; i++) {
+		var de = (week[i].earned || 0) - (week[i - 1].earned || 0), ds = (week[i].spent || 0) - (week[i - 1].spent || 0);
+		earnedT += de; spentT += ds;
+		maxFlow = Math.max(maxFlow, de, ds);
+		deltas.push({ d: week[i].d, de: de, ds: ds });
+	}
+	var net = earnedT - spentT;
+	var lvlUp = (week[week.length - 1].level || 1) - (week[0].level || 1);
+	var acts = (week[week.length - 1].interacts || 0) - (week[0].interacts || 0);
+	var avgMood = Math.round(moods.reduce(function (a, b) { return a + b; }, 0) / moods.length);
+	return createElement("div", { style: { padding: "10px 10px 8px", borderRadius: 12, background: "rgba(124,224,255,.06)", border: "1px solid rgba(124,224,255,.16)", marginBottom: 10 } },
+		createElement("div", { style: { fontSize: 10.5, fontWeight: 600, color: "#7ce0ff", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 } }, createElement(Emoji, { char: "📊", size: 11 }), "近 " + week.length + " 天周报"),
+		createElement("div", { style: { fontSize: 10, color: "#c9cbe0", marginBottom: 2 } }, "心情走势"),
+		createElement(Sparkline, { data: moods, color: "#7ce0ff" }),
+		createElement("div", { style: { fontSize: 10, color: "#c9cbe0", margin: "8px 0 4px" } }, "金币收支"),
+		deltas.length ? deltas.map(function (e, i) {
+			return createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 3 } },
+				createElement("span", { style: { width: 42, fontSize: 9.5, color: "#9aa0b5" } }, e.d.slice(5)),
+				createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 3 } },
+					createElement("div", { style: { height: 5, borderRadius: 3, background: "#9cd97a", width: Math.max(2, Math.round(e.de / maxFlow * 56)) + "px" } }),
+					createElement("span", { style: { fontSize: 9, color: "#9cd97a", minWidth: 28 } }, "+" + e.de)),
+				createElement("div", { style: { display: "flex", alignItems: "center", gap: 3 } },
+					createElement("div", { style: { height: 5, borderRadius: 3, background: "#ff9d9d", width: Math.max(2, Math.round(e.ds / maxFlow * 40)) + "px" } }),
+					createElement("span", { style: { fontSize: 9, color: "#ff9d9d", minWidth: 24 } }, "-" + e.ds)));
+		}) : createElement("div", { style: { fontSize: 9.5, color: "#6a6c80" } }, "暂无数据"),
+		createElement("div", { style: { height: 1, background: "rgba(255,255,255,.08)", margin: "8px 0 6px" } }),
+		createElement("div", { style: { fontSize: 10, color: "#c9cbe0", lineHeight: 1.7 } },
+			"💰 收入 " + earnedT + " · 支出 " + spentT + " · 净" + (net >= 0 ? " +" : " ") + net, createElement("br", null),
+			"💞 互动 " + acts + " 次" + (lvlUp > 0 ? " · 升了 " + lvlUp + " 级 🆙" : lvlUp < 0 ? "" : " · 等级不变"), createElement("br", null),
+			"📈 心情均值 " + avgMood + (avgMood >= 75 ? " 💚" : avgMood < 45 ? " 💔" : "")));
+}
 function AchievementsTab(props) {
 	var v = props.v, unlocked = v.achievements || [];
+	var rptState = useState(false), showRpt = rptState[0], setShowRpt = rptState[1];
 	function StatCell(p) { return createElement("div", { className: "dshpet-stat", style: { display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 0", borderRadius: 9, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)" } }, createElement("span", { style: { fontSize: 15, fontWeight: 700, color: "#ffe89a" } }, p.value), createElement("span", { style: { fontSize: 9.5, color: "#9aa0b5", marginTop: 2 } }, p.label)); }
 	return createElement("div", null,
-		createElement("div", { style: { fontSize: 11, color: "#c9cbe0", marginBottom: 8, fontWeight: 600 } }, "成就 " + v.achCount + "/" + v.achTotal + "   ·   玩了 " + v.daysPlayed + " 天"),
+		createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 } },
+			createElement("div", { style: { fontSize: 11, color: "#c9cbe0", fontWeight: 600, flex: 1 } }, "成就 " + v.achCount + "/" + v.achTotal + "   ·   玩了 " + v.daysPlayed + " 天"),
+			createElement("button", { type: "button", onClick: function () { setShowRpt(!showRpt); }, className: "dshpet-cell", style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, color: showRpt ? "#7ce0ff" : "#9aa0b5", border: "1px solid rgba(124,224,255,.3)", borderRadius: 7, background: showRpt ? "rgba(124,224,255,.12)" : "rgba(255,255,255,.04)", cursor: "pointer", padding: "2px 8px" } }, createElement(Emoji, { char: "📊", size: 10 }), "周报")),
+		showRpt && createElement(WeeklyReport, { log: v.dailyLog }),
 		createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5, marginBottom: 12 } },
 			createElement(StatCell, { value: fmtCoin(v.earned), label: "💰赚取" }),
 			createElement(StatCell, { value: fmtCoin(v.spent), label: "💸花费" }),
@@ -1417,12 +1496,19 @@ function PetOverlay(props) {
 		gameCtl.bump = bump;
 		return function () { gameCtl.center = null; gameCtl.moveTo = null; gameCtl.bump = null; };
 	}, []);
-	// ambient: Zzz while sleeping, sparkles when happy
+	// ambient: Zzz while sleeping, sparkles when happy, weather around the pet
 	useEffect(function () {
 		var iv = window.setInterval(function () {
 			var c = gameCtl.center && gameCtl.center(); if (!c) return;
 			if ((state.energy || 50) < 12) {
 				spawnParticle({ x: c.x + 16, y: c.y - 26, vx: 0.12 + Math.random() * 0.18, vy: -0.45, gravity: -0.002, drag: 1, life: 85, maxLife: 85, size: 13 + Math.random() * 6, rot: 0, spin: 0.05, emoji: "💤" });
+				return;
+			}
+			var wt = weatherOfToday();
+			if (wt === "rain") {
+				for (var i = 0; i < 3; i++) spawnParticle({ x: c.x + (Math.random() * 130 - 65), y: c.y - 150 - Math.random() * 50, vx: 0.35, vy: 2.6, gravity: 0.14, drag: 1, life: 60, maxLife: 60, size: 8 + Math.random() * 4, rot: 0, spin: 0, emoji: "💧", alpha: 0.75 });
+			} else if (wt === "snow") {
+				for (var j = 0; j < 2; j++) spawnParticle({ x: c.x + (Math.random() * 110 - 55), y: c.y - 130, vx: (Math.random() - 0.5) * 0.5, vy: 0.5, gravity: 0.004, drag: 1, life: 130, maxLife: 130, size: 8 + Math.random() * 7, rot: 0, spin: 0.06, emoji: "❄", alpha: 0.9 });
 			} else if ((state.mood || 50) >= 75 && Math.random() < 0.55) {
 				spawnParticle({ x: c.x + (Math.random() * 76 - 38), y: c.y + (Math.random() * 56 - 28), vx: 0, vy: -0.16, gravity: 0, drag: 1, life: 75, maxLife: 75, size: 8 + Math.random() * 5, rot: 0, spin: 0.12, emoji: "✨" });
 			}
@@ -1468,7 +1554,7 @@ function PetOverlay(props) {
 			!open && createElement(Toast, { text: ce.text }),
 			!open && createElement(Bubble, { text: bb.text }),
 			createElement(CritterTile, { v: v, size: 60, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active, onPointerDown: onPointerDown, title: "点击开/关 · 拖动移动" }),
-			createElement("div", { style: { marginTop: 7, padding: "3px 10px", borderRadius: 9, background: "rgba(28,28,40,.88)", color: "#e8eaf2", fontSize: 11, whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,.35)", textAlign: "center", maxWidth: 220 } }, statusText(v) + (v.bond >= 90 ? " 😍" : v.bond >= 75 ? " 💕" : v.bond < 25 ? " 💢" : "")),
+			createElement("div", { style: { marginTop: 7, padding: "3px 10px", borderRadius: 9, background: "rgba(28,28,40,.88)", color: "#e8eaf2", fontSize: 11, whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,.35)", textAlign: "center", maxWidth: 240 } }, statusText(v) + " " + PHASE_INFO[phaseOfDay()].icon + WEATHER_INFO[weatherOfToday()].icon + (v.bond >= 90 ? " 😍" : v.bond >= 75 ? " 💕" : v.bond < 25 ? " 💢" : "")),
 		gm.ball && createElement("div", { style: { position: "fixed", left: gm.ball.x - 14, top: gm.ball.y - 14, zIndex: 9999, pointerEvents: "none" } }, createElement(Emoji, { char: "🎾", size: 28 })),
 		gm.on && createElement(Playground),
 		createElement(Banner),
