@@ -12,6 +12,9 @@
 // glassmorphism panels, a "play" interaction (4th action + quest), growth-stage badges,
 // a rainbow conic ring on legendary skins, click/drag micro-interactions, and a
 // pet-initiated "adventure" surprise at high bond.
+// V7 adds: a click-to-throw fetch mini-game (🎾 combo + rewards), idle strolling,
+// sleeping Zzz / happy sparkle ambience, ceremony banners for milestone achievements,
+// offline welcome-back reports, panel pop in/out animations, and smart panel flipping.
 // ─────────────────────────────────────────────────────────────────────────────
 var react = require("react");
 var createElement = react.createElement;
@@ -70,7 +73,14 @@ function ensureCss() {
 		".dshpet-stage{animation:dshpet-stage .42s cubic-bezier(.2,.9,.3,1.4)}",
 		"@keyframes dshpet-glow{0%,100%{box-shadow:0 0 8px 0 rgba(124,224,255,0)}50%{box-shadow:0 0 22px 5px rgba(124,224,255,.35)}}",
 		".dshpet-glow{animation:dshpet-glow 2.6s ease-in-out infinite}",
-		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-stage,.dshpet-glow{animation:none!important}}"
+		"@keyframes dshpet-pop{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}",
+		".dshpet-pop{animation:dshpet-pop .22s cubic-bezier(.2,.9,.3,1.2)}",
+		"@keyframes dshpet-pop-out{to{opacity:0;transform:translateY(8px) scale(.95)}}",
+		".dshpet-pop-out{animation:dshpet-pop-out .16s ease-in forwards}",
+		".dshpet-anim{transition:right .5s cubic-bezier(.3,.8,.4,1),bottom .5s cubic-bezier(.3,.8,.4,1)}",
+		"@keyframes dshpet-banner{from{transform:translate(-50%,-130%)}to{transform:translate(-50%,0)}}",
+		".dshpet-banner{animation:dshpet-banner .45s cubic-bezier(.2,.9,.3,1.3)}",
+		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-stage,.dshpet-glow,.dshpet-pop,.dshpet-pop-out,.dshpet-banner{animation:none!important}}"
 	].join("\n");
 	document.head.appendChild(tag);
 }
@@ -285,6 +295,7 @@ function playSound(t) {
 		feed: [[659, 0.2, "triangle", 0.12]],
 		nap: [[440, 0.3, "sine", 0.1]],
 		play: [[523, 0.09, "square", 0.09], [784, 0.12, "square", 0.09]],
+		catch: [[587, 0.06, "square", 0.08], [880, 0.09, "square", 0.08]],
 		common: [[523, 0.1, "triangle", 0.08]],
 		draw: [[523, 0.06, "square", 0.06], [659, 0.06, "square", 0.06]],
 		rare: [[523, 0.1, "sine", 0.14], [659, 0.1, "sine", 0.14], [784, 0.2, "sine", 0.14]],
@@ -378,8 +389,8 @@ function shockwaveAt(x, y, color) {
 	spawnParticle({ x: x, y: y, ring: true, r: 6, grow: 7, gravity: 0, life: 42, maxLife: 42, color: color || "rgba(255,209,102,.75)" });
 	spawnParticle({ x: x, y: y, ring: true, r: 2, grow: 4, gravity: 0, life: 30, maxLife: 30, color: "rgba(255,255,255,.6)" });
 }
-function confettiRain() {
-	var emojis = ["✨", "⭐", "🌟", "💫", "🎉", "🎊", "💰", "🧡", "💛", "💚"];
+function confettiRain(palette) {
+	var emojis = palette || ["✨", "⭐", "🌟", "💫", "🎉", "🎊", "💰", "🧡", "💛", "💚"];
 	for (var i = 0; i < 90; i++) {
 		spawnParticle({ x: Math.random() * window.innerWidth, y: -20 - Math.random() * 80, vx: (Math.random() - 0.5) * 2.4, vy: 1.2 + Math.random() * 2.8, gravity: 0.05, drag: 0.99, life: 150 + Math.random() * 90, maxLife: 240, size: 10 + Math.random() * 16, rot: Math.random() * 6.2832, spin: (Math.random() - 0.5) * 0.22, emoji: emojis[Math.floor(Math.random() * emojis.length)] });
 	}
@@ -390,6 +401,85 @@ function triggerConfetti() {
 	flash = { active: true };
 	emit();
 	window.setTimeout(function () { flash = { active: false }; emit(); }, 1200);
+}
+
+// ── ceremony banner (big achievement moments) ───────────────────────
+var banner = { text: "", until: 0 }, bannerTimer = 0;
+function getBanner() { return banner; }
+function ceremony(text) {
+	banner = { text: text, until: Date.now() + 3400 };
+	confettiRain(["🎉", "🏆", "✨", "⭐", "💛", "🥇"]);
+	shockwaveAt(window.innerWidth / 2, window.innerHeight * 0.35, "rgba(255,209,102,.8)");
+	if (bannerTimer) window.clearTimeout(bannerTimer);
+	bannerTimer = window.setTimeout(function () { banner = { text: "", until: 0 }; emit(); }, 3400);
+	emit();
+}
+
+// ── ball game (🎾 click-to-throw fetch mini-game) ────────────────────
+var game = { on: false, combo: 0, best: 0, ball: null, raf: 0 };
+function setGame(patch) { game = Object.assign({}, game, patch); emit(); }
+var gameCtl = { center: null, moveTo: null, bump: null }; // registered by PetOverlay
+function getGame() { return game; }
+function startBallGame() {
+	if (game.on) return;
+	setGame({ on: true, combo: 0, ball: null });
+	playSound("achievement");
+	showBubble("🎾 接球游戏！点击屏幕扔球，我来接~");
+}
+function endBallGame() {
+	if (!game.on) return;
+	if (game.raf) { window.cancelAnimationFrame(game.raf); }
+	var best = game.best;
+	setGame({ on: false, ball: null, raf: 0 });
+	var msg = "🎾 玩累啦~ 本次最佳连击 x" + best;
+	showBubble(msg);
+	if (best >= 5) addDiary("🎾 接球最佳连击 x" + best);
+}
+function throwBall(tx, ty) {
+	if (!game.on || game.ball) return; // one ball in flight at a time
+	var c = gameCtl.center && gameCtl.center();
+	if (!c) return;
+	var dist = Math.hypot(tx - c.x, ty - c.y);
+	var frames = Math.max(36, Math.min(78, Math.round(28 + dist / 14)));
+	var g = 0.34;
+	setGame({ ball: { x: c.x, y: c.y - 16, vx: (tx - c.x) / frames, vy: (ty - c.y) / frames - 0.5 * g * frames } });
+	if (gameCtl.moveTo) gameCtl.moveTo(c.x + (tx - c.x) * 0.85, 480); // dash to intercept
+	playSound("play");
+	if (!game.raf) game.raf = window.requestAnimationFrame(gameLoop);
+}
+function gameLoop() {
+	var raf = game.raf;
+	if (!game.on || !game.ball) { setGame({ raf: 0 }); return; }
+	var b = game.ball, g = 0.34;
+	b.vy += g; b.x += b.vx; b.y += b.vy;
+	var c = gameCtl.center && gameCtl.center();
+	var catchY = c ? c.y : window.innerHeight - 120;
+	if (b.vy > 0 && b.y >= catchY - 12) {
+		if (c && Math.abs(b.x - c.x) < 72) { // caught!
+			var combo = game.combo + 1, best = Math.max(game.best, combo);
+			burstAt(b.x, b.y, { emojis: ["🎾", "✨", "💛", "⭐"] });
+			playSound(combo % 5 === 0 ? "rare" : "catch");
+			if (gameCtl.bump) gameCtl.bump();
+			var patch = { mood: clamp(state.mood + 2), bond: clamp((state.bond || 0) + 1) };
+			if (combo % 3 === 0) { patch.coins = (state.coins || 0) + 3; patch.playCount = (state.playCount || 0) + 1; }
+			setState(patch);
+			if (combo === 5) showBubble("🎾 五连！手感真好~");
+			if (combo === 10) { showBubble("🎾 十连截击！你太强了！"); triggerConfetti(); }
+			setGame({ combo: combo, best: best, ball: null, raf: 0 });
+			return;
+		}
+		if (b.y > window.innerHeight - 6) {
+			if (b.bounced) { // missed for good
+				showBubble(game.combo >= 3 ? "🎾 哎呀没接住！连击 x" + game.combo + " 中断" : "🎾 没接住~再试一次！");
+				setGame({ combo: 0, ball: null, raf: 0 });
+				return;
+			}
+			b.bounced = true; b.vy *= -0.45; b.vx *= 0.6;
+		}
+	}
+	if (b.x < -20 || b.x > window.innerWidth + 20) { setGame({ ball: null, raf: 0 }); return; }
+	if (raf === game.raf) game.raf = window.requestAnimationFrame(gameLoop);
+	setGame({});
 }
 
 // daily check-in (runs once per page load; grants once per calendar day)
@@ -451,6 +541,7 @@ function triggerConfetti() {
 	var elapsed = Date.now() - (state.lastSeen || Date.now());
 	var ticks = Math.min(Math.floor(elapsed / 20000), 4320);
 	if (ticks < 3) return;
+	var before = { mood: state.mood, energy: state.energy, hunger: state.hunger, bond: state.bond || 0 };
 	state.hunger = clamp(state.hunger + ticks * 0.7);
 	state.energy = clamp(state.energy + ticks * 1.2);
 	state.mood = clamp(state.mood + (state.mood < 70 ? 0.3 : -0.15) * ticks);
@@ -460,8 +551,13 @@ function triggerConfetti() {
 	persist();
 	var mins = Math.floor(elapsed / 60000);
 	if (mins >= 1) {
-		var msg = mins < 60 ? "回来啦！离开了 " + mins + " 分钟~" : mins < 1440 ? "好久不见！离开了 " + Math.floor(mins / 60) + " 小时~" : "想死你了！离开了 " + Math.floor(mins / 1440) + " 天~";
-		window.setTimeout(function () { showBubble(msg); setNotify(true); }, 800);
+		var parts = [];
+		var dm = Math.round(before.mood - state.mood); if (dm > 0) parts.push("心情 -" + dm); else if (dm < 0) parts.push("心情 +" + (-dm));
+		var de = Math.round(state.energy - before.energy); if (de > 0) parts.push("体力 +" + de);
+		var dh = Math.round(state.hunger - before.hunger); if (dh > 0) parts.push("饱腹 -" + dh);
+		var db = Math.round(before.bond - state.bond); if (db > 0) parts.push("牵绊 -" + db);
+		var head = mins < 60 ? "回来啦！离开了 " + mins + " 分钟~" : mins < 1440 ? "好久不见！离开了 " + Math.floor(mins / 60) + " 小时~" : "想死你了！离开了 " + Math.floor(mins / 1440) + " 天~";
+		window.setTimeout(function () { showCelebrate("📌 " + head + (parts.length ? "（" + parts.join(" · ") + "）" : "") + "  喂点好吃的补回来吧~"); setNotify(true); }, 800);
 	}
 })();
 
@@ -517,6 +613,7 @@ var ACH = [
 	{ id: "earn_10k", icon: "🏦", name: "金币大亨", desc: "累计赚取 10000💰", reward: 100, test: function (s) { return (s.earned || 0) >= 10000; }, progress: function (s) { return { cur: Math.min(s.earned || 0, 10000), need: 10000 }; } },
 	{ id: "care_7", icon: "💚", name: "好主人", desc: "连续 7 天不让宠物饿坏/累坏", reward: 40, test: function (s) { return (s.careStreak || 0) >= 7; }, progress: function (s) { return { cur: Math.min(s.careStreak || 0, 7), need: 7 }; } }
 ];
+var ACH_BIG = { collector_all: 1, level10: 1, level5: 1, bond_100: 1, bond_75: 1, prestige_1: 1, daily_7: 1 };
 function checkAchievements() {
 	var unlocked = state.achievements || [];
 	var newly = [], reward = 0;
@@ -524,7 +621,9 @@ function checkAchievements() {
 		var a = ACH[i];
 		if (unlocked.indexOf(a.id) === -1 && a.test(state)) {
 			newly.push(a.id); reward += a.reward;
-			showCelebrate("🏆 " + a.icon + " 成就：" + a.name + " +" + a.reward + "💰"); playSound("achievement"); addDiary("🏆 " + a.name);
+			if (ACH_BIG[a.id]) { ceremony(a.icon + " 成就解锁 · " + a.name + "（+" + a.reward + "💰）"); playSound("legendary"); }
+			else { showCelebrate("🏆 " + a.icon + " 成就：" + a.name + " +" + a.reward + "💰"); playSound("achievement"); }
+			addDiary("🏆 " + a.name);
 			setNotify(true);
 		}
 	}
@@ -919,6 +1018,25 @@ function Toast(props) {
 	if (!props.text) return null;
 	return createElement("div", { className: "dshpet-toast", style: { position: "absolute", bottom: "100%", left: "50%", marginBottom: 30, padding: "6px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: "#3a2a00", background: "linear-gradient(180deg,#ffe89a,#ffd166)", border: "1px solid rgba(255,255,255,.5)", boxShadow: "0 8px 22px rgba(255,209,102,.45)", pointerEvents: "none" } }, props.text);
 }
+function Banner() {
+	var b = useSyncExternalStore(subscribe, getBanner);
+	if (!b.text) return null;
+	return createElement("div", { className: "dshpet-banner", style: { position: "fixed", top: 18, left: "50%", zIndex: 10002, padding: "12px 26px", borderRadius: 14, background: "linear-gradient(180deg,rgba(60,50,20,.94),rgba(40,32,12,.96))", border: "1px solid rgba(255,209,102,.55)", boxShadow: "0 14px 40px rgba(0,0,0,.5), 0 0 30px rgba(255,209,102,.25)", fontSize: 14, fontWeight: 700, color: "#ffe89a", whiteSpace: "nowrap", pointerEvents: "none", fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", gap: 8 } },
+		createElement(Emoji, { char: "🏆", size: 18 }), b.text);
+}
+function Playground(props) {
+	useEffect(function () {
+		var onKey = function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); endBallGame(); } };
+		window.addEventListener("keydown", onKey, true);
+		return function () { window.removeEventListener("keydown", onKey, true); };
+	}, []);
+	var g = useSyncExternalStore(subscribe, getGame);
+	return createElement("div", { onClick: function (e) { throwBall(e.clientX, e.clientY); }, style: { position: "fixed", inset: 0, zIndex: 9998, cursor: "crosshair", background: "radial-gradient(circle at 50% 60%, rgba(124,224,255,.05), rgba(0,0,0,.18))", userSelect: "none", fontFamily: "system-ui, sans-serif" } },
+		createElement("div", { onClick: function (e) { e.stopPropagation(); }, style: { position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 10, padding: "7px 14px", borderRadius: 12, background: "rgba(28,28,40,.92)", border: "1px solid rgba(255,255,255,.15)", boxShadow: "0 8px 24px rgba(0,0,0,.4)", fontSize: 12.5, color: "#eef", whiteSpace: "nowrap" } },
+			createElement(Emoji, { char: "🎾", size: 14 }),
+			createElement("span", null, "接球中 · 连击 x " + g.combo + (g.best ? " · 最佳 x " + g.best : "") + " · 点击屏幕扔球"),
+			createElement("button", { type: "button", onClick: function () { endBallGame(); }, style: { border: "none", background: "rgba(255,255,255,.1)", color: "#cdd6e4", borderRadius: 6, cursor: "pointer", fontSize: 11, padding: "2px 8px" } }, "Esc 退出")));
+}
 function CritterTile(props) {
 	var v = props.v, size = props.size || 56, rc = ringColor(v), tapKey = props.tapKey || 0;
 	var hoverState = useState(false), hovering = hoverState[0], setHovering = hoverState[1];
@@ -1021,8 +1139,9 @@ function StatsTab(props) {
 			createElement(ActionBtn, { icon: "🍚", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🍎", "✨", "🍚"] }); interact("feed"); } }),
 			createElement(ActionBtn, { icon: "💤", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💤", "✨", "🌙"] }); interact("nap"); } }),
 			createElement(ActionBtn, { icon: "🎾", label: v.favorite === "play" ? "玩耍💛" : "玩耍", color: "#b39cff", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🎾", "✨", "⭐"] }); interact("play"); } })),
-		createElement("div", { style: { display: "flex", gap: 3, marginTop: 6, justifyContent: "center", flexWrap: "wrap" } },
-			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, className: "dshpet-cell", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 7px" }, title: e[1] }, createElement(Emoji, { char: e[0], size: 16 })); })),
+		createElement("div", { style: { display: "flex", gap: 3, marginTop: 6, justifyContent: "center", flexWrap: "wrap", alignItems: "center" } },
+			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, className: "dshpet-cell", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 7px" }, title: e[1] }, createElement(Emoji, { char: e[0], size: 16 })); }),
+			createElement("button", { type: "button", "aria-label": "接球游戏", onClick: function () { startBallGame(); }, className: "dshpet-cell", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(179,156,255,.4)", borderRadius: 7, background: "rgba(179,156,255,.14)", cursor: "pointer", padding: "3px 8px" }, title: "接球小游戏：点击屏幕扔球，宠物来接！" }, createElement(Emoji, { char: "🎾", size: 16 }))),
 		createElement("div", { style: { marginTop: 10, padding: "8px 8px 6px", borderRadius: 10, background: "rgba(124,224,255,.06)", border: "1px solid rgba(124,224,255,.15)" } },
 			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#7ce0ff", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 } }, createElement(Emoji, { char: "📋", size: 11 }), "每日任务" + ((function () { var dd = new Date().getDay(); return dd === 0 || dd === 6; })() ? "   🎉 周末双倍掉落" : "")),
 			(function () { var qs = getQuests(); return qs.map(function (q, i) {
@@ -1259,6 +1378,7 @@ function PetOverlay(props) {
 	var ce = useSyncExternalStore(subscribe, getCelebrate);
 	var fl = useSyncExternalStore(subscribe, getFlash);
 	var idStore = useSyncExternalStore(subscribe, getIdle);
+	var gm = useSyncExternalStore(subscribe, getGame);
 	var running = selectRunning(props);
 	var v = viewOf(s, running);
 	var idleEmoji = idStore.until > Date.now() ? idStore.emoji : "";
@@ -1267,14 +1387,61 @@ function PetOverlay(props) {
 	var pos = useRef((function () { var p; try { p = JSON.parse(localStorage.getItem("dsh-pet:pos") || "null"); } catch (e) { p = null; } if (!p) p = { x: 24, y: 104 }; p.x = Math.max(0, Math.min(window.innerWidth - 70, p.x || 0)); p.y = Math.max(0, Math.min(window.innerHeight - 110, p.y || 0)); return p; })());
 	var downAt = useRef(null);
 	var openRef = useRef(open); openRef.current = open;
+	var runningRef = useRef(running); runningRef.current = running;
+	var animState = useState(false), anim = animState[0], setAnim = animState[1];
+	var closingState = useState(false), closing = closingState[0], setClosing = closingState[1];
 	var tapState = useReducer(function (x) { return x + 1; }, 0), tapKey = tapState[0], bump = tapState[1];
+	function closePanel() {
+		if (closing) return;
+		setClosing(true);
+		window.setTimeout(function () { setOpen(false); setClosing(false); }, 150);
+	}
+	var closeRef = useRef(null); closeRef.current = closePanel;
 	useEffect(function () {
 		var move = function (e) { if (!downAt.current) return; var dx = e.clientX - downAt.current.sx, dy = e.clientY - downAt.current.sy; if (!downAt.current.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) downAt.current.moved = true; if (downAt.current.moved) { pos.current = { x: Math.max(0, Math.min(window.innerWidth - 70, downAt.current.px - dx)), y: Math.max(0, Math.min(window.innerHeight - 110, downAt.current.py - dy)) }; bump(); } };
-		var up = function () { if (downAt.current && downAt.current.moved) { try { localStorage.setItem("dsh-pet:pos", JSON.stringify(pos.current)); } catch (e) {} } else if (downAt.current) { setOpen(!openRef.current); bump(); burstAt(downAt.current.sx, downAt.current.sy, { emojis: ["💛", "✨"] }); } downAt.current = null; };
+		var up = function () { if (downAt.current && downAt.current.moved) { try { localStorage.setItem("dsh-pet:pos", JSON.stringify(pos.current)); } catch (e) {} } else if (downAt.current) { if (openRef.current) { if (closeRef.current) closeRef.current(); } else { setOpen(true); } bump(); burstAt(downAt.current.sx, downAt.current.sy, { emojis: ["💛", "✨"] }); } downAt.current = null; };
 		window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
 		return function () { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
 	}, []);
 	useEffect(function () { if (open) setNotify(false); }, [open]);
+	// register pet controls for the ball-game / stroll engine
+	useEffect(function () {
+		gameCtl.center = function () { var el = wrapRef.current; if (!el) return null; var r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+		gameCtl.moveTo = function (tx, ms) {
+			var c = gameCtl.center(); if (!c) return;
+			var nx = Math.max(70, Math.min(window.innerWidth - 70, tx));
+			pos.current = { x: Math.max(0, Math.min(window.innerWidth - 70, pos.current.x + (c.x - nx))), y: pos.current.y };
+			setAnim(true); bump();
+			window.setTimeout(function () { setAnim(false); try { localStorage.setItem("dsh-pet:pos", JSON.stringify(pos.current)); } catch (e) {} }, ms || 500);
+		};
+		gameCtl.bump = bump;
+		return function () { gameCtl.center = null; gameCtl.moveTo = null; gameCtl.bump = null; };
+	}, []);
+	// ambient: Zzz while sleeping, sparkles when happy
+	useEffect(function () {
+		var iv = window.setInterval(function () {
+			var c = gameCtl.center && gameCtl.center(); if (!c) return;
+			if ((state.energy || 50) < 12) {
+				spawnParticle({ x: c.x + 16, y: c.y - 26, vx: 0.12 + Math.random() * 0.18, vy: -0.45, gravity: -0.002, drag: 1, life: 85, maxLife: 85, size: 13 + Math.random() * 6, rot: 0, spin: 0.05, emoji: "💤" });
+			} else if ((state.mood || 50) >= 75 && Math.random() < 0.55) {
+				spawnParticle({ x: c.x + (Math.random() * 76 - 38), y: c.y + (Math.random() * 56 - 28), vx: 0, vy: -0.16, gravity: 0, drag: 1, life: 75, maxLife: 75, size: 8 + Math.random() * 5, rot: 0, spin: 0.12, emoji: "✨" });
+			}
+		}, 2600);
+		return function () { window.clearInterval(iv); };
+	}, []);
+	// idle stroll: wander along the bottom edge now and then
+	useEffect(function () {
+		var iv = window.setInterval(function () {
+			if (game.on || openRef.current || downAt.current || runningRef.current) return;
+			if ((state.energy || 50) < 15 || state.muted) return;
+			if (Math.random() > 0.45) return;
+			var c = gameCtl.center && gameCtl.center(); if (!c) return;
+			var dx = (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 100);
+			gameCtl.moveTo(c.x + dx, 900);
+			if (Math.random() < 0.5) window.setTimeout(function () { showBubble(pick(["散步一下~", "溜达溜达…", "这边看看~", "伸伸腿~"])); }, 500);
+		}, 47000);
+		return function () { window.clearInterval(iv); };
+	}, []);
 	var wrapRef = useRef(null);
 	var plState = useState({ below: false, left: false, maxH: 540 }), pl = plState[0], setPl = plState[1];
 	useEffect(function () {
@@ -1296,13 +1463,16 @@ function PetOverlay(props) {
 		return function () { window.removeEventListener("resize", measure); };
 	}, [open, tapKey]);
 	var onPointerDown = function (e) { downAt.current = { sx: e.clientX, sy: e.clientY, px: pos.current.x, py: pos.current.y, moved: false }; };
-	return createElement("div", { style: { position: "fixed", right: pos.current.x + "px", bottom: pos.current.y + "px", zIndex: 9999, userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" } },
+	return createElement("div", { className: anim ? "dshpet-anim" : "", style: { position: "fixed", right: pos.current.x + "px", bottom: pos.current.y + "px", zIndex: 9999, userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" } },
 		createElement("div", { ref: wrapRef, style: { position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center" } },
 			!open && createElement(Toast, { text: ce.text }),
 			!open && createElement(Bubble, { text: bb.text }),
 			createElement(CritterTile, { v: v, size: 60, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active, onPointerDown: onPointerDown, title: "点击开/关 · 拖动移动" }),
-			createElement("div", { style: { marginTop: 7, padding: "3px 10px", borderRadius: 9, background: "rgba(28,28,40,.88)", color: "#e8eaf2", fontSize: 11, whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,.35)", textAlign: "center", maxWidth: 220 } }, statusText(v) + (v.bond >= 90 ? " 😍" : v.bond >= 75 ? " 💕" : v.bond < 25 ? " 💢" : ""))),
-		open && createElement("div", { style: { position: "absolute", bottom: pl.below ? "auto" : "100%", top: pl.below ? "100%" : "auto", marginBottom: pl.below ? 0 : 10, marginTop: pl.below ? 10 : 0, left: pl.left ? 0 : "auto", right: pl.left ? "auto" : 0 } }, createElement(Toast, { text: ce.text }), createElement(Bubble, { text: bb.text }), createElement(PetPanel, { v: v, maxH: pl.maxH, onClose: function () { setOpen(false); } })));
+			createElement("div", { style: { marginTop: 7, padding: "3px 10px", borderRadius: 9, background: "rgba(28,28,40,.88)", color: "#e8eaf2", fontSize: 11, whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,.35)", textAlign: "center", maxWidth: 220 } }, statusText(v) + (v.bond >= 90 ? " 😍" : v.bond >= 75 ? " 💕" : v.bond < 25 ? " 💢" : "")),
+		gm.ball && createElement("div", { style: { position: "fixed", left: gm.ball.x - 14, top: gm.ball.y - 14, zIndex: 9999, pointerEvents: "none" } }, createElement(Emoji, { char: "🎾", size: 28 })),
+		gm.on && createElement(Playground),
+		createElement(Banner),
+		open && createElement("div", { className: closing ? "dshpet-pop-out" : "dshpet-pop", style: { position: "absolute", bottom: pl.below ? "auto" : "100%", top: pl.below ? "100%" : "auto", marginBottom: pl.below ? 0 : 10, marginTop: pl.below ? 10 : 0, left: pl.left ? 0 : "auto", right: pl.left ? "auto" : 0 } }, createElement(Toast, { text: ce.text }), createElement(Bubble, { text: bb.text }), createElement(PetPanel, { v: v, maxH: pl.maxH, onClose: closePanel }))));
 }
 
 // ── plugin ───────────────────────────────────────────────────────────
