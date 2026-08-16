@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// dsh-plugin-pet · browser-half SOURCE (factory interior) — V5
+// dsh-plugin-pet · browser-half SOURCE (factory interior) — V6
 // ─────────────────────────────────────────────────────────────────────────────
 // scripts/build.mjs wraps this into window.__ModuleLoader__.load({ id, factory }).
 // Edit HERE, then `npm run build`. Executes inside `factory(require)`; only `react` external.
@@ -8,6 +8,9 @@
 // ring in the header, time-aware greetings.
 // V5 adds: separate pet/feed/nap quest counters (fixes pet5/feed3 sharing `interacts`),
 // a "nap 2x" daily quest, and a fix for the birthday NaN greeting.
+// V6 adds: a canvas particle engine (confetti rain, click bursts, level-up shockwave),
+// glassmorphism panels, a "play" interaction (4th action + quest), growth-stage badges,
+// a rainbow conic ring on legendary skins, and click/drag micro-interactions.
 // ─────────────────────────────────────────────────────────────────────────────
 var react = require("react");
 var createElement = react.createElement;
@@ -47,7 +50,6 @@ function ensureCss() {
 		".dshpet-reveal{animation:dshpet-reveal .5s cubic-bezier(.2,.9,.3,1.3)}",
 		".dshpet-toast{animation:dshpet-toast .25s ease-out}",
 		".dshpet-spin{animation:dshpet-spin .8s linear infinite}",
-		"@keyframes dshpet-confetti{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}",
 		".dshpet-btn{transition:filter .12s ease,transform .05s ease}.dshpet-btn:hover{filter:brightness(1.22)}.dshpet-btn:active{transform:translateY(1px)}",
 		".dshpet-x{transition:filter .12s ease}.dshpet-x:hover{filter:brightness(1.4)}",
 		".dshpet-tab{transition:color .12s ease,background .12s ease}",
@@ -60,7 +62,18 @@ function ensureCss() {
 		".dshpet-aura-l{animation:dshpet-aura-l 3s ease-in-out infinite}",
 		"@keyframes dshpet-aura-r{0%,100%{box-shadow:0 0 12px 2px rgba(95,184,255,.2)}50%{box-shadow:0 0 22px 5px rgba(95,184,255,.35)}}",
 		".dshpet-aura-r{animation:dshpet-aura-r 3.5s ease-in-out infinite}",
-		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r{animation:none!important}}"
+		"@property --dshpet-a{syntax:'<angle>';inherits:false;initial-value:0deg}",
+		"@keyframes dshpet-ring{to{--dshpet-a:360deg}}",
+		".dshpet-ring{position:absolute;inset:-3px;border-radius:999px;padding:2.5px;background:conic-gradient(from var(--dshpet-a),#ffd166,#ff7ab8,#7ce0ff,#9cff7a,#ffd166);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;animation:dshpet-ring 2.6s linear infinite;pointer-events:none}",
+		"@keyframes dshpet-play{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-9px) rotate(-8deg)}75%{transform:translateY(-9px) rotate(8deg)}}",
+		".dshpet-play{animation:dshpet-play .5s ease-in-out}",
+		"@keyframes dshpet-stage{0%{transform:scale(0) rotate(-14deg);opacity:0}60%{transform:scale(1.22)}100%{transform:scale(1);opacity:1}}",
+		".dshpet-stage{animation:dshpet-stage .42s cubic-bezier(.2,.9,.3,1.4)}",
+		"@keyframes dshpet-glow{0%,100%{box-shadow:0 0 8px 0 rgba(124,224,255,0)}50%{box-shadow:0 0 22px 5px rgba(124,224,255,.35)}}",
+		".dshpet-glow{animation:dshpet-glow 2.6s ease-in-out infinite}",
+		"@keyframes dshpet-heart{0%{transform:translateY(0) scale(.6);opacity:0}20%{opacity:1}100%{transform:translateY(-26px) scale(1.15);opacity:0}}",
+		".dshpet-heart{animation:dshpet-heart 1s ease-out forwards}",
+		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-play,.dshpet-stage,.dshpet-glow,.dshpet-heart{animation:none!important}}"
 	].join("\n");
 	document.head.appendChild(tag);
 }
@@ -109,12 +122,13 @@ var QUESTS = [
 	{ id: "feed3", desc: "喂食 3 次", target: 3, reward: 10, check: function (s) { return s.feedCount || 0; } },
 	{ id: "work50", desc: "工作 50 tick", target: 50, reward: 20, check: function (s) { return s.workTicks || 0; } },
 	{ id: "earn30", desc: "赚取 30💰", target: 30, reward: 10, check: function (s) { return s.earned || 0; } },
-	{ id: "nap2", desc: "小憩 2 次", target: 2, reward: 10, check: function (s) { return s.napCount || 0; } }
+	{ id: "nap2", desc: "小憩 2 次", target: 2, reward: 10, check: function (s) { return s.napCount || 0; } },
+	{ id: "play3", desc: "玩耍 3 次", target: 3, reward: 10, check: function (s) { return s.playCount || 0; } }
 ];
 function getQuests() {
 	var day = todayKey();
-	if (state.questDate !== day) { state.questDate = day; state.questStart = { interacts: state.interacts || 0, petCount: state.petCount || 0, feedCount: state.feedCount || 0, napCount: state.napCount || 0, totalDraws: state.totalDraws || 0, turns: state.turns || 0, workTicks: state.workTicks || 0, earned: state.earned || 0 }; state.questDone = []; persist(); }
-	if (!state.questStart) { state.questStart = { interacts: 0, petCount: 0, feedCount: 0, napCount: 0, totalDraws: 0, turns: 0, workTicks: 0, earned: 0 }; }
+	if (state.questDate !== day) { state.questDate = day; state.questStart = { interacts: state.interacts || 0, petCount: state.petCount || 0, feedCount: state.feedCount || 0, napCount: state.napCount || 0, playCount: state.playCount || 0, totalDraws: state.totalDraws || 0, turns: state.turns || 0, workTicks: state.workTicks || 0, earned: state.earned || 0 }; state.questDone = []; persist(); }
+	if (!state.questStart) { state.questStart = { interacts: 0, petCount: 0, feedCount: 0, napCount: 0, playCount: 0, totalDraws: 0, turns: 0, workTicks: 0, earned: 0 }; }
 	if (!state.questIndices || state.questIndices.length !== 3) {
 		var seed = 0; for (var i = 0; i < day.length; i++) seed += day.charCodeAt(i);
 		state.questIndices = [seed % QUESTS.length, (seed * 7 + 3) % QUESTS.length, (seed * 13 + 7) % QUESTS.length].filter(function (v, j, a) { return a.indexOf(v) === j; }).slice(0, 3);
@@ -150,10 +164,10 @@ function claimQuest(idx) {
 }
 function yesterdayKey() { var d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
 function greeting() { var h = new Date().getHours(); if (h < 6) return "夜深了"; if (h < 11) return "早安"; if (h < 14) return "中午好"; if (h < 18) return "下午好"; return "晚上好"; }
-function panelGradient() { var h = new Date().getHours(); if (h < 6) return "linear-gradient(180deg, rgba(30,20,50,.97), rgba(20,15,35,.97))"; if (h < 11) return "linear-gradient(180deg, rgba(50,42,42,.97), rgba(35,30,32,.97))"; if (h < 14) return "linear-gradient(180deg, rgba(40,46,58,.97), rgba(26,30,42,.97))"; if (h < 18) return "linear-gradient(180deg, rgba(50,44,38,.97), rgba(35,30,28,.97))"; return "linear-gradient(180deg, rgba(42,36,56,.97), rgba(28,24,40,.97))"; }
+function panelGradient() { var h = new Date().getHours(); if (h < 6) return "linear-gradient(180deg, rgba(36,26,60,.76), rgba(24,18,42,.86))"; if (h < 11) return "linear-gradient(180deg, rgba(60,50,50,.72), rgba(42,36,38,.84))"; if (h < 14) return "linear-gradient(180deg, rgba(48,54,68,.72), rgba(32,36,50,.84))"; if (h < 18) return "linear-gradient(180deg, rgba(60,52,44,.72), rgba(42,36,32,.84))"; return "linear-gradient(180deg, rgba(50,42,66,.74), rgba(34,30,48,.86))"; }
 
 var SAY = {
-	pet: ["喵~", "嘿嘿", "舒服~", "再摸摸!"], feed: ["好吃!", "嗝~", "谢谢!"], nap: ["呼噜…", "zzz", "好眠~"],
+	pet: ["喵~", "嘿嘿", "舒服~", "再摸摸!"], feed: ["好吃!", "嗝~", "谢谢!"], nap: ["呼噜…", "zzz", "好眠~"], play: ["接住啦!", "再玩一次~", "哈哈好开心!", "你丢我接!"],
 	turn: ["又搞定一轮!", "合作愉快!", "加把劲!"], sad: ["呜…", "有点低落", "摸摸我?"],
 	starve: ["好饿…", "饿扁了…"], exhaust: ["困死了…", "撑不住…"], poor: ["金币不够…", "攒够再来!"], dupe: ["重复了…", "已经有这只啦"],
 	level: ["🎉 升级!", "升级啦!"]
@@ -166,7 +180,7 @@ var HINT_KEY = "dsh-pet:hint-shown";
 var storageWarned = false;
 function persist() { state.lastSeen = Date.now(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { if (!storageWarned) { storageWarned = true; try { showBubble("⚠️ 存储已满，进度暂时无法保存"); } catch (e2) {} } } }
 function addDiary(text) { state.diary = [{ text: text, t: Date.now() }].concat(state.diary || []).slice(0, 12); }
-var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, petCount: 0, feedCount: 0, napCount: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
+var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, petCount: 0, feedCount: 0, napCount: 0, playCount: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
 function clamp(n) { return Math.max(0, Math.min(100, n)); }
 function fmtCoin(n) { n = Math.floor(n || 0); if (n >= 10000) return (n / 1000).toFixed(1) + "k"; return "" + n; }
 function xpForLevel(l) { return 50 + l * 25; }
@@ -193,6 +207,7 @@ function loadState() {
 	s.petCount = Math.max(0, s.petCount || 0);
 	s.feedCount = Math.max(0, s.feedCount || 0);
 	s.napCount = Math.max(0, s.napCount || 0);
+	s.playCount = Math.max(0, s.playCount || 0);
 	s.earlyBird = !!s.earlyBird;
 	s.nightOwl = !!s.nightOwl;
 	s.freePullDate = s.freePullDate || "";
@@ -223,7 +238,6 @@ var notify = { unread: false };
 var celebrate = { text: "" };
 var draw = { phase: "idle", result: null };
 var idle = { emoji: "", until: 0 };
-var confetti = { items: [] };
 var flash = { active: false };
 var lastDraw = { id: null, isNew: false };
 var listeners = new Set();
@@ -235,7 +249,6 @@ function getNotify() { return notify; }
 function getCelebrate() { return celebrate; }
 function getDraw() { return draw; }
 function getIdle() { return idle; }
-function getConfetti() { return confetti; }
 function getFlash() { return flash; }
 function emit() { listeners.forEach(function (fn) { try { fn(); } catch (e) {} }); }
 function showBubble(text, ms) { if (state.muted) return; bubble = { text: text }; if (bubbleTimer) window.clearTimeout(bubbleTimer); bubbleTimer = window.setTimeout(function () { bubble = { text: "" }; emit(); }, ms || 4000); emit(); }
@@ -274,6 +287,7 @@ function playSound(t) {
 		pet: [[880, 0.15, "sine", 0.12]],
 		feed: [[659, 0.2, "triangle", 0.12]],
 		nap: [[440, 0.3, "sine", 0.1]],
+		play: [[523, 0.09, "square", 0.09], [784, 0.12, "square", 0.09]],
 		common: [[523, 0.1, "triangle", 0.08]],
 		draw: [[523, 0.06, "square", 0.06], [659, 0.06, "square", 0.06]],
 		rare: [[523, 0.1, "sine", 0.14], [659, 0.1, "sine", 0.14], [784, 0.2, "sine", 0.14]],
@@ -285,16 +299,100 @@ function playSound(t) {
 	if (!s) return;
 	s.forEach(function (n, i) { setTimeout(function () { playTone(n[0], n[1], n[2], n[3]); }, i * 90); });
 }
-function triggerConfetti() {
-	var emojis = ["✨", "⭐", "🌟", "💫", "🎉", "🎊", "💰"];
-	var items = [];
-	for (var i = 0; i < 22; i++) {
-		items.push({ id: i, emoji: emojis[Math.floor(Math.random() * emojis.length)], x: Math.random() * 100, delay: Math.random() * 0.5, duration: 1.4 + Math.random() * 1.4, size: 14 + Math.floor(Math.random() * 18) });
+// ── canvas particle engine (confetti / bursts / shockwave) ──────────
+var particles = [], particleCanvas = null, particleCtx = null, particleRaf = null;
+function ensureParticleCanvas() {
+	if (particleCanvas) return particleCanvas;
+	if (typeof document === "undefined") return null;
+	particleCanvas = document.createElement("canvas");
+	particleCanvas.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:10000;";
+	document.body.appendChild(particleCanvas);
+	window.addEventListener("resize", resizeParticleCanvas);
+	resizeParticleCanvas();
+	return particleCanvas;
+}
+function resizeParticleCanvas() {
+	if (!particleCanvas) return;
+	var dpr = Math.min(window.devicePixelRatio || 1, 2);
+	particleCanvas.width = Math.floor(window.innerWidth * dpr);
+	particleCanvas.height = Math.floor(window.innerHeight * dpr);
+	particleCanvas.style.width = window.innerWidth + "px";
+	particleCanvas.style.height = window.innerHeight + "px";
+}
+function spawnParticle(p) { particles.push(p); if (!particleRaf) particleRaf = window.requestAnimationFrame(tickParticles); }
+function tickParticles() {
+	var c = ensureParticleCanvas(); if (!c) { particles = []; particleRaf = null; return; }
+	var ctx = particleCtx || (particleCtx = c.getContext("2d"));
+	var dpr = Math.min(window.devicePixelRatio || 1, 2);
+	ctx.clearRect(0, 0, c.width, c.height);
+	var alive = [];
+	for (var i = 0; i < particles.length; i++) {
+		var p = particles[i];
+		p.life -= 1;
+		if (p.life <= 0) continue;
+		if (p.ring) { p.r += p.grow; }
+		else {
+			p.vy += p.gravity || 0;
+			p.vx *= p.drag || 1; p.vy *= p.drag || 1;
+			p.x += p.vx; p.y += p.vy;
+			p.rot += p.spin || 0;
+		}
+		var a = Math.max(0, Math.min(1, p.life / p.maxLife));
+		ctx.save();
+		ctx.globalAlpha = a * (p.alpha || 1);
+		if (p.ring) {
+			ctx.strokeStyle = p.color;
+			ctx.lineWidth = Math.max(1.5, 4 * a) * dpr;
+			ctx.beginPath();
+			ctx.arc(p.x * dpr, p.y * dpr, p.r * dpr, 0, 6.2832);
+			ctx.stroke();
+		} else {
+			ctx.translate(p.x * dpr, p.y * dpr);
+			ctx.rotate(p.rot);
+			if (p.emoji) {
+				ctx.font = Math.round(p.size * dpr) + "px system-ui, sans-serif";
+				ctx.textAlign = "center"; ctx.textBaseline = "middle";
+				ctx.fillText(p.emoji, 0, 0);
+			} else {
+				ctx.fillStyle = p.color;
+				var s = p.size * dpr;
+				ctx.fillRect(-s / 2, -s / 2, s, s);
+			}
+		}
+		ctx.restore();
+		alive.push(p);
 	}
-	confetti = { items: items };
+	particles = alive;
+	if (particles.length) particleRaf = window.requestAnimationFrame(tickParticles);
+	else particleRaf = null;
+}
+function burstAt(x, y, opts) {
+	var emojis = (opts && opts.emojis) || ["✨", "💛", "⭐"];
+	var n = (opts && opts.n) || 16;
+	var colors = (opts && opts.colors) || null;
+	for (var i = 0; i < n; i++) {
+		var ang = Math.random() * 6.2832, spd = 1.5 + Math.random() * 3.5;
+		var emoji = colors ? null : emojis[Math.floor(Math.random() * emojis.length)];
+		var color = colors ? colors[Math.floor(Math.random() * colors.length)] : null;
+		spawnParticle({ x: x, y: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1, gravity: 0.08, drag: 0.96, life: 40 + Math.random() * 30, maxLife: 70, size: 9 + Math.random() * 11, rot: Math.random() * 6.2832, spin: (Math.random() - 0.5) * 0.3, emoji: emoji, color: color });
+	}
+}
+function shockwaveAt(x, y, color) {
+	spawnParticle({ x: x, y: y, ring: true, r: 6, grow: 7, gravity: 0, life: 42, maxLife: 42, color: color || "rgba(255,209,102,.75)" });
+	spawnParticle({ x: x, y: y, ring: true, r: 2, grow: 4, gravity: 0, life: 30, maxLife: 30, color: "rgba(255,255,255,.6)" });
+}
+function confettiRain() {
+	var emojis = ["✨", "⭐", "🌟", "💫", "🎉", "🎊", "💰", "🧡", "💛", "💚"];
+	for (var i = 0; i < 90; i++) {
+		spawnParticle({ x: Math.random() * window.innerWidth, y: -20 - Math.random() * 80, vx: (Math.random() - 0.5) * 2.4, vy: 1.2 + Math.random() * 2.8, gravity: 0.05, drag: 0.99, life: 150 + Math.random() * 90, maxLife: 240, size: 10 + Math.random() * 16, rot: Math.random() * 6.2832, spin: (Math.random() - 0.5) * 0.22, emoji: emojis[Math.floor(Math.random() * emojis.length)] });
+	}
+}
+function triggerConfetti() {
+	confettiRain();
+	shockwaveAt(window.innerWidth / 2, window.innerHeight / 2);
 	flash = { active: true };
 	emit();
-	window.setTimeout(function () { confetti = { items: [] }; flash = { active: false }; emit(); }, 3200);
+	window.setTimeout(function () { flash = { active: false }; emit(); }, 1200);
 }
 
 // daily check-in (runs once per page load; grants once per calendar day)
@@ -438,6 +536,12 @@ function checkAchievements() {
 checkAchievements();
 
 // ── brain ────────────────────────────────────────────────────────────
+function stageOf(level) {
+	if (level >= 20) return { icon: "👑", name: "大师" };
+	if (level >= 10) return { icon: "🌟", name: "成年" };
+	if (level >= 5) return { icon: "🌱", name: "成长" };
+	return { icon: "🐣", name: "幼崽" };
+}
 function viewOf(s, working) {
 	var skin = skinOf(s.species);
 	return {
@@ -448,11 +552,12 @@ function viewOf(s, working) {
 		pity: s.pity || 0, pityLeft: Math.max(0, PITY_CAP - (s.pity || 0)),
 		totalDraws: s.totalDraws || 0, maxStreak: s.maxStreak || 0, loginStreak: s.loginStreak || 0, careStreak: s.careStreak || 0,
 		achievements: (s.achievements || []).slice(), achCount: (s.achievements || []).length, achTotal: ACH.length,
-		earned: s.earned || 0, spent: s.spent || 0, turns: s.turns || 0, workTicks: s.workTicks || 0, daysPlayed: s.daysPlayed || 0, interacts: s.interacts || 0,
+		earned: s.earned || 0, spent: s.spent || 0, turns: s.turns || 0, workTicks: s.workTicks || 0, daysPlayed: s.daysPlayed || 0, interacts: s.interacts || 0, playCount: s.playCount || 0,
 		muted: !!s.muted,
 		onboarded: !!s.onboarded,
 		moodTier: moodTierOf(s), sleeping: s.energy < 12, streak: s.streak, turnBonus: TURN_BONUS + Math.min((s.streak || 0), 10) * 2, working: !!working,
 		freePull: s.freePullDate !== todayKey(),
+		stage: stageOf(s.level),
 		ageDays: Math.max(0, Math.floor((Date.now() - (s.bornAt || Date.now())) / 86400000)),
 	};
 }
@@ -482,6 +587,7 @@ function interact(action) {
 	if (action === "pet") { patch.petCount = (state.petCount || 0) + 1; patch.mood = clamp(state.mood + Math.round((t === "social" ? 8 : t === "lively" ? 7 : 6) * mult * favBonus)); patch.energy = clamp(state.energy + 1); patch.bond = clamp(state.bond + Math.round(3 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.pet) : (crit ? "✨ 暴击！" + pick(SAY.pet) : pick(SAY.pet))); playSound(crit ? "rare" : "pet"); if (crit) critFlash(); }
 	else if (action === "feed") { patch.feedCount = (state.feedCount || 0) + 1; patch.hunger = clamp(state.hunger - Math.round((t === "foodie" ? 35 : 30) * favBonus)); patch.mood = clamp(state.mood + Math.round(3 * mult * favBonus)); patch.bond = clamp(state.bond + Math.round(2 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.feed) : (crit ? "✨ 暴击！" + pick(SAY.feed) : pick(SAY.feed))); playSound(crit ? "rare" : "feed"); if (crit) critFlash(); }
 	else if (action === "nap") { patch.napCount = (state.napCount || 0) + 1; patch.energy = clamp(state.energy + Math.round((t === "lazy" ? 48 : 40) * mult * favBonus)); patch.mood = clamp(state.mood + 2); patch.bond = clamp(state.bond + Math.round(1 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.nap) : (crit ? "✨ 暴击！" + pick(SAY.nap) : pick(SAY.nap))); playSound(crit ? "rare" : "nap"); if (crit) critFlash(); }
+	else if (action === "play") { patch.playCount = (state.playCount || 0) + 1; patch.mood = clamp(state.mood + Math.round((t === "lively" ? 9 : 7) * mult * favBonus)); patch.energy = clamp(state.energy - 2); patch.bond = clamp(state.bond + Math.round(3 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.play) : (crit ? "✨ 暴击！" + pick(SAY.play) : pick(SAY.play))); playSound(crit ? "rare" : "play"); if (crit) critFlash(); }
 }
 function equip(id) { if ((state.skins || []).indexOf(id) !== -1) { setState({ species: id }); showBubble(skinOf(id).name + " " + RARITY_BADGE[skinOf(id).rarity]); } }
 function rollSkinId(guaranteedRare) {
@@ -800,13 +906,7 @@ function Toast(props) {
 	if (!props.text) return null;
 	return createElement("div", { className: "dshpet-toast", style: { position: "absolute", bottom: "100%", left: "50%", marginBottom: 30, padding: "6px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: "#3a2a00", background: "linear-gradient(180deg,#ffe89a,#ffd166)", border: "1px solid rgba(255,255,255,.5)", boxShadow: "0 8px 22px rgba(255,209,102,.45)", pointerEvents: "none" } }, props.text);
 }
-function Confetti() {
-	var c = useSyncExternalStore(subscribe, getConfetti);
-	if (!c.items.length) return null;
-	return createElement("div", { style: { position: "fixed", inset: 0, pointerEvents: "none", zIndex: 10000, overflow: "hidden" } },
-		c.items.map(function (item) { return createElement("span", { key: item.id, style: { position: "absolute", left: item.x + "%", top: "-30px", fontSize: item.size + "px", animation: "dshpet-confetti " + item.duration + "s linear " + item.delay + "s forwards", pointerEvents: "none" } }, item.emoji); }));
-}
-	function CritterTile(props) {
+function CritterTile(props) {
 	var v = props.v, size = props.size || 56, rc = ringColor(v), tapKey = props.tapKey || 0;
 	var hoverState = useState(false), hovering = hoverState[0], setHovering = hoverState[1];
 	var baseFace = props.idleEmoji || face(v);
@@ -814,7 +914,9 @@ function Confetti() {
 	var moodFilter = v.sleeping ? "saturate(0.5) brightness(0.7)" : v.moodTier === "happy" ? "saturate(1.18) brightness(1.08)" : v.moodTier === "sad" ? "saturate(0.55) brightness(0.88)" : "none";
 	if (hovering && !v.sleeping) moodFilter = "saturate(1.25) brightness(1.12)";
 	return createElement("div", { style: { position: "relative", width: size, height: size } },
-		(v.rarity === "legendary" || v.rarity === "rare") && !v.working ? createElement("div", { className: v.rarity === "legendary" ? "dshpet-aura-l" : "dshpet-aura-r", style: { position: "absolute", inset: -3, borderRadius: size * 0.38, pointerEvents: "none" } }) : null,
+		v.rarity === "legendary" && !v.working ? createElement("div", { className: "dshpet-ring", style: { borderRadius: size * 0.38 } }) : null,
+		v.rarity === "rare" && !v.working ? createElement("div", { className: "dshpet-aura-r", style: { position: "absolute", inset: -3, borderRadius: size * 0.38, pointerEvents: "none" } }) : null,
+		v.moodTier === "happy" && !v.working && !v.sleeping ? createElement("div", { className: "dshpet-glow", style: { position: "absolute", inset: -2, borderRadius: size * 0.38, pointerEvents: "none" } }) : null,
 		createElement("div", { onPointerDown: props.onPointerDown, onClick: props.onClick, onMouseEnter: function () { setHovering(true); }, onMouseLeave: function () { setHovering(false); }, title: props.title, className: v.working ? "dshpet-work" : "dshpet-bob",
 			style: { width: size, height: size, borderRadius: size * 0.32, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.6, background: "rgba(136,136,170,.20)", border: "2px solid " + rc, boxShadow: "0 8px 22px rgba(0,0,0,.34), 0 0 14px " + rc + "55" + (props.flashing ? ", 0 0 24px 6px rgba(255,209,102,.55)" : ""), backdropFilter: "blur(6px)", cursor: props.onPointerDown ? "grab" : "pointer", transition: "box-shadow .3s ease, filter .4s ease", filter: moodFilter } },
 			createElement("span", { key: tapKey + (hovering ? "h" : ""), className: tapKey ? "dshpet-tap" : null, style: { display: "inline-block", transform: hovering ? "scale(1.15)" : "scale(1)", transition: "transform .15s ease" } }, shown)),
@@ -867,9 +969,10 @@ function StatsTab(props) {
 		v.hunger <= 30 ? createElement("div", { style: { fontSize: 9, color: "#9cd97a", marginBottom: 4 } }, "🍚 吃饱了，心情恢复加速~") : null,
 		v.careStreak > 0 ? createElement("div", { style: { fontSize: 9, color: v.careStreak >= 7 ? "#5fe0a0" : "#9cd97a", marginBottom: 12 } }, "💚 连续 " + v.careStreak + " 天好主人 · 每日牵绊 +" + Math.min(v.careStreak, 10)) : createElement("div", { style: { height: 0, marginBottom: 8 } }),
 		createElement("div", { style: { display: "flex", gap: 6 } },
-			createElement(ActionBtn, { icon: "💞", label: v.favorite === "pet" ? "抚摸💛" : "抚摸", color: "#ff9db8", onClick: function () { interact("pet"); } }),
-			createElement(ActionBtn, { icon: "🍚", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function () { interact("feed"); } }),
-			createElement(ActionBtn, { icon: "💤", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function () { interact("nap"); } })),
+			createElement(ActionBtn, { icon: "💞", label: v.favorite === "pet" ? "抚摸💛" : "抚摸", color: "#ff9db8", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💛", "✨", "💕"] }); interact("pet"); } }),
+			createElement(ActionBtn, { icon: "🍚", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🍎", "✨", "🍚"] }); interact("feed"); } }),
+			createElement(ActionBtn, { icon: "💤", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💤", "✨", "🌙"] }); interact("nap"); } }),
+			createElement(ActionBtn, { icon: "🎾", label: v.favorite === "play" ? "玩耍💛" : "玩耍", color: "#b39cff", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🎾", "✨", "⭐"] }); interact("play"); } })),
 		createElement("div", { style: { display: "flex", gap: 3, marginTop: 6, justifyContent: "center", flexWrap: "wrap" } },
 			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, style: { fontSize: 16, border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 6px", transition: "transform .1s ease" }, title: e[1] }, e[0]); })),
 		createElement("div", { style: { marginTop: 10, padding: "8px 8px 6px", borderRadius: 10, background: "rgba(124,224,255,.06)", border: "1px solid rgba(124,224,255,.15)" } },
@@ -984,7 +1087,7 @@ function Onboarding(props) {
 	var v = props.v;
 	var nameState = useState("豆豆"), name = nameState[0], setName = nameState[1];
 	var stepState = useState(0), step = stepState[0], setStep = stepState[1];
-	var panelStyle = { width: 264, padding: 13, borderRadius: 18, color: "#eef", background: panelGradient(), border: "1px solid rgba(255,255,255,.13)", boxShadow: "0 18px 44px rgba(0,0,0,.55)" };
+	var panelStyle = { width: 264, padding: 13, borderRadius: 18, color: "#eef", background: panelGradient(), border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 18px 44px rgba(0,0,0,.55)", backdropFilter: "blur(14px) saturate(150%)", WebkitBackdropFilter: "blur(14px) saturate(150%)" };
 	var head = createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 } },
 		createElement("span", { style: { fontSize: 26 } }, "🐣"),
 		createElement("div", { style: { flex: 1 } },
@@ -1023,6 +1126,7 @@ function PetPanel(props) {
 			else if (k === "p" && tab === 0) { interact("pet"); e.preventDefault(); }
 			else if (k === "f" && tab === 0) { interact("feed"); e.preventDefault(); }
 			else if (k === "n" && tab === 0) { interact("nap"); e.preventDefault(); }
+			else if (k === "l" && tab === 0) { interact("play"); e.preventDefault(); }
 			else if (k === "d" && tab === 3) { doDraw(); e.preventDefault(); }
 		};
 		window.addEventListener("keydown", onKey);
@@ -1033,16 +1137,18 @@ function PetPanel(props) {
 	try { showHint = !localStorage.getItem(HINT_KEY); } catch (e) {}
 	function dismissHint() { try { localStorage.setItem(HINT_KEY, "1"); } catch (e) {} showHint = false; emit(); }
 	return createElement("div", { className: "dshpet-panel",
-		style: { width: 264, maxHeight: "calc(100vh - 120px)", padding: 13, borderRadius: 18, color: "#eef", background: panelGradient(), border: "1px solid rgba(255,255,255,.13)", boxShadow: "0 18px 44px rgba(0,0,0,.55)", display: "flex", flexDirection: "column" } },
+		style: { width: 264, maxHeight: "calc(100vh - 120px)", padding: 13, borderRadius: 18, color: "#eef", background: panelGradient(), border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 18px 44px rgba(0,0,0,.55)", backdropFilter: "blur(14px) saturate(150%)", WebkitBackdropFilter: "blur(14px) saturate(150%)", display: "flex", flexDirection: "column" } },
 		createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } },
 			createElement(RadialXP, { v: v }),
 			createElement("div", { style: { flex: 1, minWidth: 0 } },
-				createElement("div", { style: { fontWeight: 700, fontSize: 14, color: "#f3f4fb" } }, v.name + (v.traitIcon ? " " + v.traitIcon : "") + " · Lv." + v.level + (v.prestige > 0 ? " 🌟" + v.prestige : "")),
+				createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+					createElement("span", { style: { fontWeight: 700, fontSize: 14, color: "#f3f4fb" } }, v.name + (v.traitIcon ? " " + v.traitIcon : "") + " · Lv." + v.level + (v.prestige > 0 ? " 🌟" + v.prestige : "")),
+					createElement("span", { key: v.stage.name, className: "dshpet-stage", style: { fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 7, background: "rgba(255,209,102,.18)", border: "1px solid rgba(255,209,102,.4)", color: "#ffe89a" } }, v.stage.icon + " " + v.stage.name)),
 				createElement("div", { style: { fontSize: 10.5, color: "#c9cbe0", marginTop: 1 } }, v.skinName + " " + v.badge + "   💰 " + fmtCoin(v.coins) + "   🎴 " + v.owned + "/" + v.total + "   🕐 " + v.ageDays + "天")),
 			createElement("button", { onClick: onClose, className: "dshpet-x", "aria-label": "关闭", style: { flex: "none", width: 26, height: 26, borderRadius: 8, border: "none", background: "rgba(255,255,255,.08)", color: "#c9cbe0", cursor: "pointer", fontSize: 17, lineHeight: "17px" } }, "×")),
 		createElement(TabBar, { active: tab, onChange: setTab }),
 		showHint ? createElement("div", { style: { fontSize: 10, color: "#9aa0b5", padding: "6px 8px", marginBottom: 8, borderRadius: 8, background: "rgba(124,224,255,.08)", border: "1px solid rgba(124,224,255,.2)", display: "flex", alignItems: "center", gap: 6 } },
-			createElement("span", null, "⌨️ 快捷键: 1-4 切换 · P抚摸 F喂食 N小憩 · D抽奖 · Esc关闭"),
+			createElement("span", null, "⌨️ 快捷键: 1-4 切换 · P抚摸 F喂食 N小憩 L玩耍 · D抽奖 · Esc关闭"),
 			createElement("button", { onClick: dismissHint, style: { marginLeft: "auto", border: "none", background: "none", color: "#9aa0b5", cursor: "pointer", fontSize: 13, padding: 0 } }, "×")) : null,
 		createElement("div", { key: tab, className: "dshpet-tab-content", style: { overflowY: "auto", height: "min(440px, calc(100vh - 200px))" } },
 			tab === 0 ? createElement(StatsTab, { v: v }) : tab === 1 ? createElement(ClosetTab, { v: v, gotoMore: function () { setTab(3); } }) : tab === 2 ? createElement(AchievementsTab, { v: v }) : createElement(MoreTab, { v: v, draw: d, doFreePull: doFreePull })));
@@ -1081,10 +1187,9 @@ function PetAction(props) {
 	useEffect(function () { if (open) setNotify(false); }, [open]);
 	var wide = props.wide !== false;
 	return createElement("div", { style: { position: "relative" } },
-		createElement(Confetti),
 		createElement(Toast, { text: ce.text }),
 		createElement(Bubble, { text: bb.text }),
-		createElement("button", { type: "button", onClick: function () { setOpen(!open); bump(); }, title: statusText(v), style: { border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" } },
+		createElement("button", { type: "button", onClick: function (e) { setOpen(!open); bump(); burstAt(e.clientX, e.clientY, { emojis: ["💛", "✨"] }); }, title: statusText(v), style: { border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" } },
 			createElement(CritterTile, { v: v, size: wide ? 40 : 36, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active }),
 			wide && createElement("span", { style: { marginLeft: 7, fontSize: 13, color: "#cdd6e4" } }, v.name)),
 		open && createElement("div", { style: { position: "absolute", bottom: "100%", left: 0, marginBottom: 8, zIndex: 50 } }, createElement(PetPanel, { v: v, onClose: function () { setOpen(false); } })));
@@ -1108,7 +1213,7 @@ function PetOverlay(props) {
 	var tapState = useReducer(function (x) { return x + 1; }, 0), tapKey = tapState[0], bump = tapState[1];
 	useEffect(function () {
 		var move = function (e) { if (!downAt.current) return; var dx = e.clientX - downAt.current.sx, dy = e.clientY - downAt.current.sy; if (!downAt.current.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) downAt.current.moved = true; if (downAt.current.moved) { pos.current = { x: downAt.current.px - dx, y: downAt.current.py - dy }; bump(); } };
-		var up = function () { if (downAt.current && downAt.current.moved) { try { localStorage.setItem("dsh-pet:pos", JSON.stringify(pos.current)); } catch (e) {} } else if (downAt.current) { setOpen(!openRef.current); bump(); } downAt.current = null; };
+		var up = function () { if (downAt.current && downAt.current.moved) { try { localStorage.setItem("dsh-pet:pos", JSON.stringify(pos.current)); } catch (e) {} } else if (downAt.current) { setOpen(!openRef.current); bump(); burstAt(downAt.current.sx, downAt.current.sy, { emojis: ["💛", "✨"] }); } downAt.current = null; };
 		window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
 		return function () { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
 	}, []);
@@ -1116,7 +1221,6 @@ function PetOverlay(props) {
 	var onPointerDown = function (e) { downAt.current = { sx: e.clientX, sy: e.clientY, px: pos.current.x, py: pos.current.y, moved: false }; };
 	return createElement("div", { style: { position: "fixed", right: pos.current.x + "px", bottom: pos.current.y + "px", zIndex: 9999, userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" } },
 		createElement("div", { style: { position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-			createElement(Confetti),
 		createElement(Toast, { text: ce.text }),
 			createElement(Bubble, { text: bb.text }),
 			createElement(CritterTile, { v: v, size: 60, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active, onPointerDown: onPointerDown, title: "点击开/关 · 拖动移动" }),
