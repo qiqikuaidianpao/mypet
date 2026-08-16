@@ -938,9 +938,10 @@ function CritterTile(props) {
 
 // ── tabs ─────────────────────────────────────────────────────────────
 function TabBar(props) {
-	var tabs = [["状态", 0], ["衣橱", 1], ["成就", 2], ["更多", 3]];
+	var tabs = [["状态", 0, "activity"], ["衣橱", 1, "shirt"], ["成就", 2, "trophy"], ["更多", 3, "sliders"]];
 	return createElement("div", { style: { display: "flex", gap: 4, background: "rgba(0,0,0,.22)", padding: 3, borderRadius: 10, marginBottom: 12 } },
-		tabs.map(function (t) { var active = props.active === t[1]; return createElement("button", { key: t[1], onClick: function () { props.onChange(t[1]); }, className: "dshpet-tab", style: { flex: 1, padding: "6px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "#aeb0c8", background: active ? "linear-gradient(180deg,#5a5a7a,#3e3e58)" : "transparent" } }, t[0]); }));
+		tabs.map(function (t) { var active = props.active === t[1]; return createElement("button", { key: t[1], onClick: function () { props.onChange(t[1]); }, className: "dshpet-tab", style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 3, padding: "6px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "#aeb0c8", background: active ? "linear-gradient(180deg,#5a5a7a,#3e3e58)" : "transparent" } },
+			createElement(Icon, { name: t[2], size: 11, color: active ? "#fff" : "#aeb0c8" }), t[0]); }));
 }
 function Sparkline(props) {
 	var d = props.data || [];
@@ -955,26 +956,65 @@ function Sparkline(props) {
 		createElement("polyline", { points: pts, fill: "none", stroke: trendColor, strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", opacity: 0.8 }),
 		createElement("circle", { cx: ((d.length - 1) / (d.length - 1) * w).toFixed(1), cy: (h - (last / max) * h).toFixed(1), r: 1.5, fill: trendColor }));
 }
+// ── icon set (Lucide-style stroke icons, hand-rolled — no deps) ──────
+var ICONS = {
+	smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>',
+	zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+	utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
+	heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+	moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+	gamepad: '<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+	dices: '<rect x="2" y="2" width="20" height="20" rx="4"/><path d="M8 8h.01M16 8h.01M8 16h.01M16 16h.01M12 12h.01"/>',
+	sparkles: '<path d="M12 3l1.9 5.8 5.8 1.9-5.8 1.9L12 18.4l-1.9-5.8-5.8-1.9 5.8-1.9z"/><path d="M19 15l.7 2.1 2.1.9-2.1.9L19 21l-.9-2.1-2.1-.9 2.1-.9z"/>',
+	gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+	pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+	share: '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>',
+	star: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/>',
+	rotate: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+	volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+	volumeX: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/>',
+	upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+	download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+	trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+	check: '<polyline points="20 6 9 17 4 12"/>',
+	coin: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h6M9 14.5h6"/>',
+	cards: '<rect x="3" y="6" width="13" height="16" rx="2"/><path d="M8 3h9a2 2 0 0 1 2 2v13"/>',
+	clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+	clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+	list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+	shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+	activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+	shirt: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
+	trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+	sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+	layers: '<path d="m12 2 10 5-10 5L2 7Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+	target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'
+};
+function Icon(props) {
+	var body = ICONS[props.name] || ICONS.sparkles;
+	return createElement("svg", { viewBox: "0 0 24 24", width: props.size || 14, height: props.size || 14, fill: "none", stroke: props.color || "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true, style: { display: "inline-block", verticalAlign: "-0.125em", flex: "none" } },
+		createElement("g", { dangerouslySetInnerHTML: { __html: body } }));
+}
 function StatRow(props) {
 	return createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
-		createElement("span", { style: { width: 48, fontSize: 11, color: "#c9cbe0" } }, props.icon, " ", props.label),
+		createElement("span", { style: { width: 48, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#c9cbe0" } }, props.icon, props.label),
 		createElement(Bar, { value: props.value, color: props.color }),
 		createElement("span", { style: { width: 26, fontSize: 11, textAlign: "right", color: "#aeb0c8" } }, Math.round(props.value)));
 }
 function ActionBtn(props) {
 	return createElement("button", { onClick: props.onClick, className: "dshpet-btn", disabled: !!props.disabled,
 		style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "9px 0", borderRadius: 10, cursor: props.disabled ? "default" : "pointer", fontSize: 11, color: "#eef", border: "1px solid " + props.color + "55", background: props.color + "26", opacity: props.disabled ? 0.45 : 1 } },
-		createElement("span", { style: { fontSize: 17, lineHeight: 1 } }, props.icon),
+		createElement(Icon, { name: props.icon, size: 17, color: "#f0f3fa" }),
 		createElement("span", null, props.label));
 }
 function StatsTab(props) {
 	var v = props.v;
 	return createElement("div", null,
-		createElement(StatRow, { icon: "💖", label: "心情", value: v.mood, color: "#7ce0ff" }),
+		createElement(StatRow, { icon: createElement(Icon, { name: "smile", color: "#7ce0ff", size: 13 }), label: "心情", value: v.mood, color: "#7ce0ff" }),
 		createElement(Sparkline, { data: v.moodHistory, color: "#7ce0ff" }),
-		createElement(StatRow, { icon: "⚡", label: "体力", value: v.energy, color: "#9cd97a" }),
-		createElement(StatRow, { icon: "🍚", label: "饱腹", value: 100 - v.hunger, color: "#ffcf6b" }),
-		createElement(StatRow, { icon: "💕", label: "牵绊", value: v.bond, color: "#ff9db8" }),
+		createElement(StatRow, { icon: createElement(Icon, { name: "zap", color: "#9cd97a", size: 13 }), label: "体力", value: v.energy, color: "#9cd97a" }),
+		createElement(StatRow, { icon: createElement(Icon, { name: "utensils", color: "#ffcf6b", size: 13 }), label: "饱腹", value: 100 - v.hunger, color: "#ffcf6b" }),
+		createElement(StatRow, { icon: createElement(Icon, { name: "heart", color: "#ff9db8", size: 13 }), label: "牵绊", value: v.bond, color: "#ff9db8" }),
 		createElement(Sparkline, { data: v.bondHistory, color: "#ff9db8" }),
 		v.bond >= 75 ? createElement("div", { style: { fontSize: 9, color: "#ff9db8", marginLeft: 54, marginBottom: 8 } }, "✨ 暴击率 " + (v.bond >= 90 ? 25 : 15) + "%") : null,
 		createElement("div", { style: { fontSize: 10.5, color: v.streak >= 10 ? "#ff6b6b" : v.streak >= 5 ? "#ff9d6b" : v.streak >= 3 ? "#ffb36b" : "#aeb0c8", margin: "10px 0 4px", fontWeight: v.streak >= 5 ? 700 : v.streak >= 3 ? 600 : 400 } }, "Lv." + v.level + " · 经验 " + v.xp + "/" + v.xpNeed + (v.streak ? "   " + (v.streak >= 10 ? "🔥🔥" : "🔥") + " 连击 " + v.streak + " · 下轮 +" + v.turnBonus + "💰" : "")),
@@ -982,14 +1022,14 @@ function StatsTab(props) {
 		v.hunger <= 30 ? createElement("div", { style: { fontSize: 9, color: "#9cd97a", marginBottom: 4 } }, "🍚 吃饱了，心情恢复加速~") : null,
 		v.careStreak > 0 ? createElement("div", { style: { fontSize: 9, color: v.careStreak >= 7 ? "#5fe0a0" : "#9cd97a", marginBottom: 12 } }, "💚 连续 " + v.careStreak + " 天好主人 · 每日牵绊 +" + Math.min(v.careStreak, 10)) : createElement("div", { style: { height: 0, marginBottom: 8 } }),
 		createElement("div", { style: { display: "flex", gap: 6 } },
-			createElement(ActionBtn, { icon: "💞", label: v.favorite === "pet" ? "抚摸💛" : "抚摸", color: "#ff9db8", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💛", "✨", "💕"] }); interact("pet"); } }),
-			createElement(ActionBtn, { icon: "🍚", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🍎", "✨", "🍚"] }); interact("feed"); } }),
-			createElement(ActionBtn, { icon: "💤", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💤", "✨", "🌙"] }); interact("nap"); } }),
-			createElement(ActionBtn, { icon: "🎾", label: v.favorite === "play" ? "玩耍💛" : "玩耍", color: "#b39cff", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🎾", "✨", "⭐"] }); interact("play"); } })),
+			createElement(ActionBtn, { icon: "heart", label: v.favorite === "pet" ? "抚摸💛" : "抚摸", color: "#ff9db8", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💛", "✨", "💕"] }); interact("pet"); } }),
+			createElement(ActionBtn, { icon: "utensils", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🍎", "✨", "🍚"] }); interact("feed"); } }),
+			createElement(ActionBtn, { icon: "moon", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["💤", "✨", "🌙"] }); interact("nap"); } }),
+			createElement(ActionBtn, { icon: "gamepad", label: v.favorite === "play" ? "玩耍💛" : "玩耍", color: "#b39cff", onClick: function (e) { burstAt(e.clientX, e.clientY, { emojis: ["🎾", "✨", "⭐"] }); interact("play"); } })),
 		createElement("div", { style: { display: "flex", gap: 3, marginTop: 6, justifyContent: "center", flexWrap: "wrap" } },
-			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, style: { fontSize: 16, border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 6px", transition: "transform .1s ease" }, title: e[1] }, e[0]); })),
+			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, className: "dshpet-cell", style: { fontSize: 16, border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 7px" }, title: e[1] }, e[0]); })),
 		createElement("div", { style: { marginTop: 10, padding: "8px 8px 6px", borderRadius: 10, background: "rgba(124,224,255,.06)", border: "1px solid rgba(124,224,255,.15)" } },
-			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#7ce0ff", marginBottom: 6 } }, "📋 每日任务" + ((function () { var dd = new Date().getDay(); return dd === 0 || dd === 6; })() ? "   🎉 周末双倍掉落" : "")),
+			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#7ce0ff", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 } }, createElement(Icon, { name: "clipboard", size: 11, color: "#7ce0ff" }), "每日任务" + ((function () { var dd = new Date().getDay(); return dd === 0 || dd === 6; })() ? "   🎉 周末双倍掉落" : "")),
 			(function () { var qs = getQuests(); return qs.map(function (q, i) {
 				var pct = Math.min(100, Math.round(q.cur / q.target * 100));
 				return createElement("div", { key: i, onClick: function () { claimQuest(i); }, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4, cursor: q.done || q.cur < q.target ? "default" : "pointer", opacity: q.done ? 0.5 : 1 } },
@@ -1049,10 +1089,10 @@ function AchievementsTab(props) {
 						prog ? createElement("div", { style: { marginTop: 3, height: 4, borderRadius: 2, background: "rgba(255,255,255,.1)", overflow: "hidden" } },
 							createElement("div", { style: { width: progPct + "%", height: "100%", background: progPct >= 75 ? "#5fe0a0" : progPct >= 40 ? "#7ce0ff" : "#9aa0b5", borderRadius: 2, transition: "width .3s ease" } })) : null,
 						prog ? createElement("div", { style: { fontSize: 9, color: "#7a7c90", marginTop: 2 } }, prog.cur + "/" + prog.need) : null),
-					createElement("span", { style: { fontSize: 11, color: done ? "#ffd166" : "#6a6c80", fontWeight: 700 } }, done ? "✓" : "+" + a.reward + "💰"));
+					createElement("span", { style: { fontSize: 11, color: done ? "#ffd166" : "#6a6c80", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 2 } }, done ? createElement(Icon, { name: "check", size: 11, color: "#ffd166" }) : "+" + a.reward + "💰"));
 			})),
 		createElement("div", { style: { marginTop: 10, padding: "8px 8px 6px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" } },
-			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#c9cbe0", marginBottom: 6 } }, "📜 最近事件"),
+			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#c9cbe0", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 } }, createElement(Icon, { name: "list", size: 11, color: "#c9cbe0" }), "最近事件"),
 			(v.diary || []).length ? (v.diary || []).slice(0, 6).map(function (d, i) {
 				var ago = Math.floor((Date.now() - d.t) / 60000), timeStr = ago < 1 ? "刚刚" : ago < 60 ? ago + "分钟前" : ago < 1440 ? Math.floor(ago / 60) + "小时前" : Math.floor(ago / 1440) + "天前";
 				return createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9aa0b5", marginBottom: 3 } },
@@ -1071,29 +1111,29 @@ function MoreTab(props) {
 	return createElement("div", null,
 		reveal,
 		createElement("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
-			createElement(ActionBtn, { icon: d.phase === "rolling" ? "🎯" : "🎰", label: d.phase === "rolling" ? "抽取中…" : "抽奖 💰" + DRAW_COST, color: "#ffd166", disabled: !canDraw && d.phase !== "rolling", onClick: doDraw }),
-			createElement(ActionBtn, { icon: "🎰", label: "十连 130💰", color: "#ff9d6b", disabled: v.coins < 130 || d.phase !== "idle", onClick: doDraw10 }),
-			v.freePull && d.phase === "idle" ? createElement(ActionBtn, { icon: "🎁", label: "免费抽", color: "#5fe0a0", onClick: props.doFreePull }) : createElement(ActionBtn, { icon: "✓", label: "今日已用", color: "#6a6c80", disabled: true })),
+			createElement(ActionBtn, { icon: d.phase === "rolling" ? "target" : "sparkles", label: d.phase === "rolling" ? "抽取中…" : "抽奖 💰" + DRAW_COST, color: "#ffd166", disabled: !canDraw && d.phase !== "rolling", onClick: doDraw }),
+			createElement(ActionBtn, { icon: "layers", label: "十连 130💰", color: "#ff9d6b", disabled: v.coins < 130 || d.phase !== "idle", onClick: doDraw10 }),
+			v.freePull && d.phase === "idle" ? createElement(ActionBtn, { icon: "gift", label: "免费抽", color: "#5fe0a0", onClick: props.doFreePull }) : createElement(ActionBtn, { icon: "check", label: "今日已用", color: "#6a6c80", disabled: true })),
 		createElement("div", { style: { fontSize: 10.5, color: "#aeb0c8", marginBottom: 6 } }, "概率：普通 70% · 稀有 22% · 传说 8%（重复退 " + DUPE_REFUND + "💰）"),
-		createElement("div", { style: { fontSize: 10.5, color: "#ffd166", marginBottom: 4 } }, "🛡 保底：再抽 " + v.pityLeft + " 次必出稀有+"),
+		createElement("div", { style: { fontSize: 10.5, color: "#ffd166", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 } }, createElement(Icon, { name: "shield", size: 11, color: "#ffd166" }), "保底：再抽 " + v.pityLeft + " 次必出稀有+"),
 		(function () { var m = new Date().getMonth() + 1; var s = m === 10 ? "🎃 万圣节限定皮肤概率提升！" : (m === 12 || m === 1 || m === 2) ? "❄️ 冬季节日限定皮肤概率提升！" : null; return s ? createElement("div", { style: { fontSize: 10, color: "#5fe0a0", marginBottom: 10 } }, s) : null; })(),
 		createElement("div", { style: { height: 1, background: "rgba(255,255,255,.08)", margin: "0 0 10px" } }),
 		createElement("div", { style: { fontSize: 9.5, color: "#7a7c90", marginBottom: 4 } }, "宠物管理"),
 		createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-			createElement(ActionBtn, { icon: "✏️", label: "改名", color: "#9aa0b5", onClick: function () { var n = window.prompt("给宠物起个名字：", v.name); if (n != null) rename(n); } }),
-			createElement(ActionBtn, { icon: "📋", label: "分享", color: "#b48cff", onClick: shareCard }),
-			createElement(ActionBtn, { icon: "🎲", label: "换性格 50💰", color: "#ff9db8", disabled: v.coins < 50, onClick: rerollTrait })),
+			createElement(ActionBtn, { icon: "pencil", label: "改名", color: "#9aa0b5", onClick: function () { var n = window.prompt("给宠物起个名字：", v.name); if (n != null) rename(n); } }),
+			createElement(ActionBtn, { icon: "share", label: "分享", color: "#b48cff", onClick: shareCard }),
+			createElement(ActionBtn, { icon: "dices", label: "换性格 50💰", color: "#ff9db8", disabled: v.coins < 50, onClick: rerollTrait })),
 		createElement("div", { style: { fontSize: 9.5, color: "#7a7c90", marginBottom: 4 } }, "进阶"),
 		createElement("div", { style: { display: "flex", gap: 6 } },
-			v.prestige > 0 ? createElement(ActionBtn, { icon: "🌟", label: "转生×" + (v.prestige + 1), color: "#ffd166", disabled: v.level < 20, onClick: prestige }) : v.level >= 20 ? createElement(ActionBtn, { icon: "🌟", label: "转生!", color: "#ffd166", onClick: prestige }) : createElement(ActionBtn, { icon: "🌟", label: "转生 (Lv.20)", color: "#6a6c80", disabled: true }),
-			createElement(ActionBtn, { icon: "↻", label: "重置", color: "#ff7a7a", onClick: reset })),
+			v.prestige > 0 ? createElement(ActionBtn, { icon: "star", label: "转生×" + (v.prestige + 1), color: "#ffd166", disabled: v.level < 20, onClick: prestige }) : v.level >= 20 ? createElement(ActionBtn, { icon: "star", label: "转生!", color: "#ffd166", onClick: prestige }) : createElement(ActionBtn, { icon: "star", label: "转生 (Lv.20)", color: "#6a6c80", disabled: true }),
+			createElement(ActionBtn, { icon: "rotate", label: "重置", color: "#ff7a7a", onClick: reset })),
 		createElement("div", { style: { height: 1, background: "rgba(255,255,255,.1)", margin: "10px -2px 8px" } }),
 		createElement("div", { style: { fontSize: 10.5, color: "#aeb0c8", marginBottom: 6 } }, "设置"),
 		createElement("div", { style: { display: "flex", gap: 6 } },
-			createElement(ActionBtn, { icon: v.muted ? "🔔" : "🔇", label: v.muted ? "已静音" : "气泡", color: "#9aa0b5", onClick: toggleMute }),
-			createElement(ActionBtn, { icon: "⬆️", label: "导出", color: "#7ce0ff", onClick: exportSave }),
-			createElement(ActionBtn, { icon: "⬇️", label: "导入", color: "#9cd97a", onClick: importSave }),
-			createElement(ActionBtn, { icon: "🗑️", label: "清空", color: "#ff7a7a", onClick: wipeAll })));
+			createElement(ActionBtn, { icon: v.muted ? "volume" : "volumeX", label: v.muted ? "已静音" : "气泡", color: "#9aa0b5", onClick: toggleMute }),
+			createElement(ActionBtn, { icon: "upload", label: "导出", color: "#7ce0ff", onClick: exportSave }),
+			createElement(ActionBtn, { icon: "download", label: "导入", color: "#9cd97a", onClick: importSave }),
+			createElement(ActionBtn, { icon: "trash", label: "清空", color: "#ff7a7a", onClick: wipeAll })));
 }
 
 function Onboarding(props) {
@@ -1157,7 +1197,14 @@ function PetPanel(props) {
 				createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
 					createElement("span", { style: { fontWeight: 700, fontSize: 14, color: "#f3f4fb" } }, v.name + (v.traitIcon ? " " + v.traitIcon : "") + " · Lv." + v.level + (v.prestige > 0 ? " 🌟" + v.prestige : "")),
 					createElement("span", { key: v.stage.name, className: "dshpet-stage", style: { fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 7, background: "rgba(255,209,102,.18)", border: "1px solid rgba(255,209,102,.4)", color: "#ffe89a" } }, v.stage.icon + " " + v.stage.name)),
-				createElement("div", { style: { fontSize: 10.5, color: "#c9cbe0", marginTop: 1 } }, v.skinName + " " + v.badge + "   💰 " + fmtCoin(v.coins) + "   🎴 " + v.owned + "/" + v.total + "   🕐 " + v.ageDays + "天")),
+				createElement("div", { style: { fontSize: 10.5, color: "#c9cbe0", marginTop: 1, display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 4, rowGap: 2 } },
+					createElement("span", null, v.skinName + " " + v.badge),
+					createElement(Icon, { name: "coin", size: 11, color: "#ffd166" }),
+					createElement("span", null, fmtCoin(v.coins)),
+					createElement(Icon, { name: "cards", size: 11, color: "#b39cff" }),
+					createElement("span", null, v.owned + "/" + v.total),
+					createElement(Icon, { name: "clock", size: 11, color: "#9aa0b5" }),
+					createElement("span", null, v.ageDays + "天"))),
 			createElement("button", { onClick: onClose, className: "dshpet-x", "aria-label": "关闭", style: { flex: "none", width: 26, height: 26, borderRadius: 8, border: "none", background: "rgba(255,255,255,.08)", color: "#c9cbe0", cursor: "pointer", fontSize: 17, lineHeight: "17px" } }, "×")),
 		createElement(TabBar, { active: tab, onChange: setTab }),
 		showHint ? createElement("div", { style: { fontSize: 10, color: "#9aa0b5", padding: "6px 8px", marginBottom: 8, borderRadius: 8, background: "rgba(124,224,255,.08)", border: "1px solid rgba(124,224,255,.2)", display: "flex", alignItems: "center", gap: 6 } },
@@ -1200,12 +1247,12 @@ function PetAction(props) {
 	useEffect(function () { if (open) setNotify(false); }, [open]);
 	var wide = props.wide !== false;
 	return createElement("div", { style: { position: "relative" } },
-		createElement(Toast, { text: ce.text }),
-		createElement(Bubble, { text: bb.text }),
+		!open && createElement(Toast, { text: ce.text }),
+		!open && createElement(Bubble, { text: bb.text }),
 		createElement("button", { type: "button", onClick: function (e) { setOpen(!open); bump(); burstAt(e.clientX, e.clientY, { emojis: ["💛", "✨"] }); }, title: statusText(v), style: { border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" } },
 			createElement(CritterTile, { v: v, size: wide ? 40 : 36, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active }),
 			wide && createElement("span", { style: { marginLeft: 7, fontSize: 13, color: "#cdd6e4" } }, v.name)),
-		open && createElement("div", { style: { position: "absolute", bottom: "100%", left: 0, marginBottom: 8, zIndex: 50 } }, createElement(PetPanel, { v: v, onClose: function () { setOpen(false); } })));
+		open && createElement("div", { style: { position: "absolute", bottom: "100%", left: 0, marginBottom: 8, zIndex: 50 } }, createElement(Toast, { text: ce.text }), createElement(Bubble, { text: bb.text }), createElement(PetPanel, { v: v, onClose: function () { setOpen(false); } })));
 }
 
 function PetOverlay(props) {
@@ -1234,8 +1281,8 @@ function PetOverlay(props) {
 	var onPointerDown = function (e) { downAt.current = { sx: e.clientX, sy: e.clientY, px: pos.current.x, py: pos.current.y, moved: false }; };
 	return createElement("div", { style: { position: "fixed", right: pos.current.x + "px", bottom: pos.current.y + "px", zIndex: 9999, userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" } },
 		createElement("div", { style: { position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-		createElement(Toast, { text: ce.text }),
-			createElement(Bubble, { text: bb.text }),
+			!open && createElement(Toast, { text: ce.text }),
+			!open && createElement(Bubble, { text: bb.text }),
 			createElement(CritterTile, { v: v, size: 60, unread: n.unread, tapKey: tapKey, idleEmoji: idleEmoji, flashing: fl.active, onPointerDown: onPointerDown, title: "点击开/关 · 拖动移动" }),
 			createElement("div", { style: { marginTop: 7, padding: "3px 10px", borderRadius: 9, background: "rgba(28,28,40,.88)", color: "#e8eaf2", fontSize: 11, whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,.35)", textAlign: "center", maxWidth: 220 } }, statusText(v) + (v.bond >= 90 ? " 😍" : v.bond >= 75 ? " 💕" : v.bond < 25 ? " 💢" : ""))),
 		open && createElement("div", { style: { position: "absolute", bottom: "100%", right: 0, marginBottom: 10 } }, createElement(Toast, { text: ce.text }), createElement(Bubble, { text: bb.text }), createElement(PetPanel, { v: v, onClose: function () { setOpen(false); } })));
