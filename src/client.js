@@ -66,15 +66,11 @@ function ensureCss() {
 		"@property --dshpet-a{syntax:'<angle>';inherits:false;initial-value:0deg}",
 		"@keyframes dshpet-ring{to{--dshpet-a:360deg}}",
 		".dshpet-ring{position:absolute;inset:-3px;border-radius:999px;padding:2.5px;background:conic-gradient(from var(--dshpet-a),#ffd166,#ff7ab8,#7ce0ff,#9cff7a,#ffd166);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;animation:dshpet-ring 2.6s linear infinite;pointer-events:none}",
-		"@keyframes dshpet-play{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-9px) rotate(-8deg)}75%{transform:translateY(-9px) rotate(8deg)}}",
-		".dshpet-play{animation:dshpet-play .5s ease-in-out}",
 		"@keyframes dshpet-stage{0%{transform:scale(0) rotate(-14deg);opacity:0}60%{transform:scale(1.22)}100%{transform:scale(1);opacity:1}}",
 		".dshpet-stage{animation:dshpet-stage .42s cubic-bezier(.2,.9,.3,1.4)}",
 		"@keyframes dshpet-glow{0%,100%{box-shadow:0 0 8px 0 rgba(124,224,255,0)}50%{box-shadow:0 0 22px 5px rgba(124,224,255,.35)}}",
 		".dshpet-glow{animation:dshpet-glow 2.6s ease-in-out infinite}",
-		"@keyframes dshpet-heart{0%{transform:translateY(0) scale(.6);opacity:0}20%{opacity:1}100%{transform:translateY(-26px) scale(1.15);opacity:0}}",
-		".dshpet-heart{animation:dshpet-heart 1s ease-out forwards}",
-		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-play,.dshpet-stage,.dshpet-glow,.dshpet-heart{animation:none!important}}"
+		"@media (prefers-reduced-motion: reduce){.dshpet-bob,.dshpet-tap,.dshpet-work,.dshpet-panel,.dshpet-badge,.dshpet-reveal,.dshpet-toast,.dshpet-spin,.dshpet-tab-content,.dshpet-aura-l,.dshpet-aura-r,.dshpet-ring,.dshpet-stage,.dshpet-glow{animation:none!important}}"
 	].join("\n");
 	document.head.appendChild(tag);
 }
