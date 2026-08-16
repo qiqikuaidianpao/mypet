@@ -2,6 +2,11 @@
 
 本文件遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [1.4.2] - 2026-08-16
+
+### 变更
+- 更新 README 截图至 v1.4 界面（天气时段、周报、接球入口）。
+
 ## [1.4.1] - 2026-08-16
 
 ### 变更

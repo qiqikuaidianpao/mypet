@@ -1,6 +1,6 @@
 {
   "name": "mypet",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "A tamagotchi-style desktop pet for DeepSeek Harness — living skins that blink & wag, weather + time-of-day ambience, weekly report cards, a fetch mini-game, 24 collectible skins, achievements and synthesized sounds. 电子宠物：会眨眼摇尾巴、看天气看时辰、还能接球。",
   "type": "module",
   "main": "lib/index.js",
