@@ -84,6 +84,17 @@ dsh plugin --profile web remove mypet
 - `tick()` — 衰减速度（默认 20s 周期）
 - 顶部 `var MOUNT = "overlay"` ↔ `"sidebar"` — 悬浮 vs 侧边栏
 
+## 开发
+
+```sh
+npm run build   # 将 src/client.js 打包为 lib/client.js
+npm run check   # 语法检查 + 产物新鲜度 + 源码不变量
+```
+
+- 只改 `src/client.js`，`lib/client.js` 是自动生成的构建产物，不要手改。
+- 每日任务池共 7 个（抚摸 / 抽奖 / 工作轮 / 喂食 / 工作 tick / 赚钱 / 小憩），每天按日期随机抽取 3 个；每种互动有独立计数。
+- 改动说明见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 文件
 
 | 文件 | 作用 |
@@ -92,8 +103,10 @@ dsh plugin --profile web remove mypet
 | `lib/client.js` | 构建产物（工厂形式） |
 | `lib/index.js` | node 半（空 apply） |
 | `scripts/build.mjs` | 构建脚本 |
+| `scripts/check.mjs` | 质量门禁（语法/新鲜度/不变量） |
 | `cordis.patch.yml` | bundle patch |
 | `screenshots/` | 截图 |
+| `CHANGELOG.md` | 变更日志 |
 
 ## License
 

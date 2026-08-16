@@ -1,9 +1,19 @@
 {
   "name": "mypet",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "A tamagotchi-style desktop pet for DeepSeek Harness — lives in your browser, reacts to coding sessions, levels up, collects skins, and more.",
   "type": "module",
   "main": "lib/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qiqikuaidianpao/mypet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qiqikuaidianpao/mypet/issues"
+  },
   "exports": {
     ".": {
       "default": "./lib/index.js"
@@ -23,7 +33,9 @@
     "screenshots"
   ],
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "prepublishOnly": "npm run build && npm run check"
   },
   "keywords": [
     "dsh",

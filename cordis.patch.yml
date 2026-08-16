@@ -13,9 +13,11 @@
 # graph and the browser loads the pet under /plugins/<id>/client.js. The node
 # half (lib/index.js) is a trivial `apply(){}` that just gives the entry a fiber.
 #
-# The pet registers into the `sidebar.footer.action` LIST slot (declared by
-# @deepseek-ai/dsh-client-ui-sidebar; replaceRisk "none"), so it appears beside
-# Settings in every web profile that mounts the sidebar.
+# The pet picks its slot at runtime via the `MOUNT` constant in src/client.js:
+#   "overlay"  -> shell.overlay (a floating, draggable pet; the default)
+#   "sidebar"  -> sidebar.footer.action (a compact footer button, from
+#                 @deepseek-ai/dsh-client-ui-sidebar; replaceRisk "none")
+# The entry itself just activates the package; slot choice happens in apply().
 - insert:
     - id: dsh-pet
       name: 'mypet'

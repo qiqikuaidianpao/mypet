@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// dsh-plugin-pet · browser-half SOURCE (factory interior) — V4
+// dsh-plugin-pet · browser-half SOURCE (factory interior) — V5
 // ─────────────────────────────────────────────────────────────────────────────
 // scripts/build.mjs wraps this into window.__ModuleLoader__.load({ id, factory }).
 // Edit HERE, then `npm run build`. Executes inside `factory(require)`; only `react` external.
-// MOUNT: "sidebar" (sidebar.footer.action, default) | "overlay" (shell.overlay).
+// MOUNT: "overlay" (shell.overlay, default) | "sidebar" (sidebar.footer.action).
 // V4 adds: gacha PITY system (+ visible counter), DAILY check-in bonus, RADIAL XP
 // ring in the header, time-aware greetings.
+// V5 adds: separate pet/feed/nap quest counters (fixes pet5/feed3 sharing `interacts`),
+// a "nap 2x" daily quest, and a fix for the birthday NaN greeting.
 // ─────────────────────────────────────────────────────────────────────────────
 var react = require("react");
 var createElement = react.createElement;
@@ -101,17 +103,18 @@ function pickSpecies() { return COMMON[Math.floor(Math.random() * COMMON.length)
 function skinOf(id) { return SKINS[id] || SKINS.fox; }
 function todayKey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
 var QUESTS = [
-	{ id: "pet5", desc: "抚摸 5 次", target: 5, reward: 10, check: function (s) { return s.interacts || 0; } },
+	{ id: "pet5", desc: "抚摸 5 次", target: 5, reward: 10, check: function (s) { return s.petCount || 0; } },
 	{ id: "draw2", desc: "抽奖 2 次", target: 2, reward: 15, check: function (s) { return s.totalDraws || 0; } },
 	{ id: "turn3", desc: "完成 3 轮工作", target: 3, reward: 15, check: function (s) { return s.turns || 0; } },
-	{ id: "feed3", desc: "喂食 3 次", target: 3, reward: 10, check: function (s) { return s.interacts || 0; } },
+	{ id: "feed3", desc: "喂食 3 次", target: 3, reward: 10, check: function (s) { return s.feedCount || 0; } },
 	{ id: "work50", desc: "工作 50 tick", target: 50, reward: 20, check: function (s) { return s.workTicks || 0; } },
-	{ id: "earn30", desc: "赚取 30💰", target: 30, reward: 10, check: function (s) { return s.earned || 0; } }
+	{ id: "earn30", desc: "赚取 30💰", target: 30, reward: 10, check: function (s) { return s.earned || 0; } },
+	{ id: "nap2", desc: "小憩 2 次", target: 2, reward: 10, check: function (s) { return s.napCount || 0; } }
 ];
 function getQuests() {
 	var day = todayKey();
-	if (state.questDate !== day) { state.questDate = day; state.questStart = { interacts: state.interacts || 0, totalDraws: state.totalDraws || 0, turns: state.turns || 0, workTicks: state.workTicks || 0, earned: state.earned || 0 }; state.questDone = []; persist(); }
-	if (!state.questStart) { state.questStart = { interacts: 0, totalDraws: 0, turns: 0, workTicks: 0, earned: 0 }; }
+	if (state.questDate !== day) { state.questDate = day; state.questStart = { interacts: state.interacts || 0, petCount: state.petCount || 0, feedCount: state.feedCount || 0, napCount: state.napCount || 0, totalDraws: state.totalDraws || 0, turns: state.turns || 0, workTicks: state.workTicks || 0, earned: state.earned || 0 }; state.questDone = []; persist(); }
+	if (!state.questStart) { state.questStart = { interacts: 0, petCount: 0, feedCount: 0, napCount: 0, totalDraws: 0, turns: 0, workTicks: 0, earned: 0 }; }
 	if (!state.questIndices || state.questIndices.length !== 3) {
 		var seed = 0; for (var i = 0; i < day.length; i++) seed += day.charCodeAt(i);
 		state.questIndices = [seed % QUESTS.length, (seed * 7 + 3) % QUESTS.length, (seed * 13 + 7) % QUESTS.length].filter(function (v, j, a) { return a.indexOf(v) === j; }).slice(0, 3);
@@ -163,7 +166,7 @@ var HINT_KEY = "dsh-pet:hint-shown";
 var storageWarned = false;
 function persist() { state.lastSeen = Date.now(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { if (!storageWarned) { storageWarned = true; try { showBubble("⚠️ 存储已满，进度暂时无法保存"); } catch (e2) {} } } }
 function addDiary(text) { state.diary = [{ text: text, t: Date.now() }].concat(state.diary || []).slice(0, 12); }
-var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
+var DEFAULT_STATE = { _v: STATE_VERSION, name: "豆豆", species: pickSpecies(), trait: "", favorite: "", mood: 80, energy: 80, hunger: 35, bond: 50, moodHistory: [], bondHistory: [], xp: 0, level: 1, prestige: 0, streak: 0, coins: 0, skins: [], pity: 0, lastCheckIn: "", totalDraws: 0, maxCoins: 0, maxStreak: 0, loginStreak: 0, achievements: [], muted: false, onboarded: false, earned: 0, spent: 0, turns: 0, workTicks: 0, daysPlayed: 0, interacts: 0, petCount: 0, feedCount: 0, napCount: 0, earlyBird: false, nightOwl: false, freePullDate: "", lastBirthday: 0, lastAllowance: 0, streakGrace: 0, lastSeen: 0, questDate: "", questStart: null, questDone: [], questIndices: null, diary: [], careStreak: 0, badCareDay: false, bornAt: Date.now() };
 function clamp(n) { return Math.max(0, Math.min(100, n)); }
 function fmtCoin(n) { n = Math.floor(n || 0); if (n >= 10000) return (n / 1000).toFixed(1) + "k"; return "" + n; }
 function xpForLevel(l) { return 50 + l * 25; }
@@ -187,6 +190,9 @@ function loadState() {
 	s.workTicks = Math.max(0, s.workTicks || 0);
 	s.daysPlayed = Math.max(0, s.daysPlayed || 0);
 	s.interacts = Math.max(0, s.interacts || 0);
+	s.petCount = Math.max(0, s.petCount || 0);
+	s.feedCount = Math.max(0, s.feedCount || 0);
+	s.napCount = Math.max(0, s.napCount || 0);
 	s.earlyBird = !!s.earlyBird;
 	s.nightOwl = !!s.nightOwl;
 	s.freePullDate = s.freePullDate || "";
@@ -238,10 +244,11 @@ function showCelebrate(text, ms) {
 	if (celebrate.text) { celebrateQueue.push({ text: text, ms: ms || 4200 }); return; }
 	celebrate = { text: text };
 	if (celebrateTimer) window.clearTimeout(celebrateTimer);
-	celebrateTimer = window.setTimeout(function () {
-		if (celebrateQueue.length) { var next = celebrateQueue.shift(); celebrate = { text: next.text }; emit(); celebrateTimer = window.setTimeout(arguments.callee, next.ms); }
+	function next() {
+		if (celebrateQueue.length) { var n = celebrateQueue.shift(); celebrate = { text: n.text }; emit(); celebrateTimer = window.setTimeout(next, n.ms); }
 		else { celebrate = { text: "" }; emit(); }
-	}, ms || 4200);
+	}
+	celebrateTimer = window.setTimeout(next, ms || 4200);
 	emit();
 }
 function setNotify(v) { notify = { unread: !!v }; emit(); }
@@ -324,7 +331,7 @@ function triggerConfetti() {
 		state.coins = (state.coins || 0) + ageWeeks * 10;
 		state.earned = (state.earned || 0) + ageWeeks * 10;
 		persist();
-		showCelebrate("🎂 " + state.name + " 已经 " + ageWeeks + + " 周大啦！生日快乐！+" + (ageWeeks * 10) + "💰");
+		showCelebrate("🎂 " + state.name + " 已经 " + ageWeeks + " 周大啦！生日快乐！+" + (ageWeeks * 10) + "💰");
 		addDiary("🎂 " + ageWeeks + " 周生日");
 		triggerConfetti();
 	}
@@ -471,9 +478,10 @@ function statusText(v) {
 function interact(action) {
 	var t = state.trait, fav = state.favorite, isFav = fav === action, patch = { interacts: (state.interacts || 0) + 1 };
 	var b = state.bond || 0, critChance = b >= 90 ? 0.25 : b >= 75 ? 0.15 : 0, crit = critChance > 0 && Math.random() < critChance, mult = crit ? 2 : 1, favBonus = isFav ? 1.3 : 1;
-	if (action === "pet") { patch.mood = clamp(state.mood + Math.round((t === "social" ? 8 : t === "lively" ? 7 : 6) * mult * favBonus)); patch.energy = clamp(state.energy + 1); patch.bond = clamp(state.bond + Math.round(3 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.pet) : (crit ? "✨ 暴击！" + pick(SAY.pet) : pick(SAY.pet))); playSound(crit ? "rare" : "pet"); if (crit) { flash = { active: true }; emit(); window.setTimeout(function () { flash = { active: false }; emit(); }, 800); } }
-	else if (action === "feed") { patch.hunger = clamp(state.hunger - Math.round((t === "foodie" ? 35 : 30) * favBonus)); patch.mood = clamp(state.mood + Math.round(3 * mult * favBonus)); patch.bond = clamp(state.bond + Math.round(2 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.feed) : (crit ? "✨ 暴击！" + pick(SAY.feed) : pick(SAY.feed))); playSound(crit ? "rare" : "feed"); if (crit) { flash = { active: true }; emit(); window.setTimeout(function () { flash = { active: false }; emit(); }, 800); } }
-	else if (action === "nap") { patch.energy = clamp(state.energy + Math.round((t === "lazy" ? 48 : 40) * mult * favBonus)); patch.mood = clamp(state.mood + 2); patch.bond = clamp(state.bond + Math.round(1 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.nap) : (crit ? "✨ 暴击！" + pick(SAY.nap) : pick(SAY.nap))); playSound(crit ? "rare" : "nap"); if (crit) { flash = { active: true }; emit(); window.setTimeout(function () { flash = { active: false }; emit(); }, 800); } }
+	function critFlash() { flash = { active: true }; emit(); window.setTimeout(function () { flash = { active: false }; emit(); }, 800); }
+	if (action === "pet") { patch.petCount = (state.petCount || 0) + 1; patch.mood = clamp(state.mood + Math.round((t === "social" ? 8 : t === "lively" ? 7 : 6) * mult * favBonus)); patch.energy = clamp(state.energy + 1); patch.bond = clamp(state.bond + Math.round(3 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.pet) : (crit ? "✨ 暴击！" + pick(SAY.pet) : pick(SAY.pet))); playSound(crit ? "rare" : "pet"); if (crit) critFlash(); }
+	else if (action === "feed") { patch.feedCount = (state.feedCount || 0) + 1; patch.hunger = clamp(state.hunger - Math.round((t === "foodie" ? 35 : 30) * favBonus)); patch.mood = clamp(state.mood + Math.round(3 * mult * favBonus)); patch.bond = clamp(state.bond + Math.round(2 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.feed) : (crit ? "✨ 暴击！" + pick(SAY.feed) : pick(SAY.feed))); playSound(crit ? "rare" : "feed"); if (crit) critFlash(); }
+	else if (action === "nap") { patch.napCount = (state.napCount || 0) + 1; patch.energy = clamp(state.energy + Math.round((t === "lazy" ? 48 : 40) * mult * favBonus)); patch.mood = clamp(state.mood + 2); patch.bond = clamp(state.bond + Math.round(1 * mult * favBonus)); setState(patch); showBubble(isFav ? "💛 " + pick(SAY.nap) : (crit ? "✨ 暴击！" + pick(SAY.nap) : pick(SAY.nap))); playSound(crit ? "rare" : "nap"); if (crit) critFlash(); }
 }
 function equip(id) { if ((state.skins || []).indexOf(id) !== -1) { setState({ species: id }); showBubble(skinOf(id).name + " " + RARITY_BADGE[skinOf(id).rarity]); } }
 function rollSkinId(guaranteedRare) {
@@ -863,7 +871,7 @@ function StatsTab(props) {
 			createElement(ActionBtn, { icon: "🍚", label: v.favorite === "feed" ? "喂食💛" : "喂食", color: "#ffcf6b", onClick: function () { interact("feed"); } }),
 			createElement(ActionBtn, { icon: "💤", label: v.favorite === "nap" ? "小憩💛" : "小憩", color: "#9cd97a", onClick: function () { interact("nap"); } })),
 		createElement("div", { style: { display: "flex", gap: 3, marginTop: 6, justifyContent: "center", flexWrap: "wrap" } },
-			EMOTES.map(function (e, i) { return createElement("button", { key: i, onClick: function () { showEmote(i); }, style: { fontSize: 16, border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 6px", transition: "transform .1s ease" }, title: e[1] }, e[0]); })),
+			EMOTES.map(function (e, i) { return createElement("button", { key: i, type: "button", "aria-label": e[1], onClick: function () { showEmote(i); }, style: { fontSize: 16, border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, background: "rgba(255,255,255,.04)", cursor: "pointer", padding: "3px 6px", transition: "transform .1s ease" }, title: e[1] }, e[0]); })),
 		createElement("div", { style: { marginTop: 10, padding: "8px 8px 6px", borderRadius: 10, background: "rgba(124,224,255,.06)", border: "1px solid rgba(124,224,255,.15)" } },
 			createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#7ce0ff", marginBottom: 6 } }, "📋 每日任务" + ((function () { var dd = new Date().getDay(); return dd === 0 || dd === 6; })() ? "   🎉 周末双倍掉落" : "")),
 			(function () { var qs = getQuests(); return qs.map(function (q, i) {
