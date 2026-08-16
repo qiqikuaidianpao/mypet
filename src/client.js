@@ -10,7 +10,8 @@
 // a "nap 2x" daily quest, and a fix for the birthday NaN greeting.
 // V6 adds: a canvas particle engine (confetti rain, click bursts, level-up shockwave),
 // glassmorphism panels, a "play" interaction (4th action + quest), growth-stage badges,
-// a rainbow conic ring on legendary skins, and click/drag micro-interactions.
+// a rainbow conic ring on legendary skins, click/drag micro-interactions, and a
+// pet-initiated "adventure" surprise at high bond.
 // ─────────────────────────────────────────────────────────────────────────────
 var react = require("react");
 var createElement = react.createElement;
@@ -840,6 +841,22 @@ function maybeIdle(running) {
 		addDiary("🎁 宝箱 +" + treasure + "💰");
 		playSound("achievement");
 		flash = { active: true }; emit(); window.setTimeout(function () { flash = { active: false }; emit(); }, 1200);
+		return;
+	}
+	// 高牵绊：宠物主动去冒险，稍后带回奖励（pet-initiated surprise）
+	if ((state.bond || 0) >= 75 && Math.random() < 0.02) {
+		showBubble("🎒 我去冒险啦！等我回来~");
+		showIdle("🎒", "去冒险了…");
+		playSound("achievement");
+		var loot = 10 + Math.floor(Math.random() * 21);
+		var rare = Math.random() < 0.15;
+		window.setTimeout(function () {
+			var got = rare ? loot * 2 : loot;
+			setState({ coins: (state.coins || 0) + got });
+			showCelebrate(rare ? "🌟 冒险大丰收！+" + got + "💰" : "🎒 冒险回来啦！带回 +" + got + "💰");
+			addDiary((rare ? "🌟 冒险大丰收 +" : "🎒 冒险带回 +") + got + "💰");
+			triggerConfetti();
+		}, 3000 + Math.floor(Math.random() * 2000));
 		return;
 	}
 	var choice;
